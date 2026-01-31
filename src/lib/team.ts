@@ -19,6 +19,20 @@ export const initializeChengduDadieTeam = () => {
   if (!teams.find(t => t.id === CHENGDU_DADIE_TEAM_ID)) {
     storage.addTeam(CHENGDU_DADIE_TEAM);
   }
+  
+  // 清理旧格式的球员数据（没有 birthday 字段的）
+  try {
+    const players = storage.getPlayersByTeam(CHENGDU_DADIE_TEAM_ID);
+    const invalidPlayers = players.filter((p: any) => !p.birthday || !p.positions);
+    if (invalidPlayers.length > 0) {
+      console.log('清理旧格式球员数据:', invalidPlayers.length, '个');
+      // 删除旧数据
+      invalidPlayers.forEach((p: any) => storage.deletePlayer(p.id));
+    }
+  } catch (error) {
+    console.error('清理旧数据时出错:', error);
+  }
+  
   return CHENGDU_DADIE_TEAM_ID;
 };
 
@@ -27,14 +41,27 @@ export const getChengduDadieTeamId = () => CHENGDU_DADIE_TEAM_ID;
 
 // 计算年龄
 export const calculateAge = (birthday: string): number => {
-  const today = new Date();
-  const birthDate = new Date(birthday);
-  let age = today.getFullYear() - birthDate.getFullYear();
-  const monthDiff = today.getMonth() - birthDate.getMonth();
+  if (!birthday) return 0;
   
-  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-    age--;
+  try {
+    const today = new Date();
+    const birthDate = new Date(birthday);
+    
+    if (isNaN(birthDate.getTime())) {
+      console.error('无效的生日格式:', birthday);
+      return 0;
+    }
+    
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    
+    return age;
+  } catch (error) {
+    console.error('计算年龄时出错:', error);
+    return 0;
   }
-  
-  return age;
 };

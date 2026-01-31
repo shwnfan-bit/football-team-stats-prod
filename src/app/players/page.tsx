@@ -32,9 +32,16 @@ export default function PlayersPage() {
   }, []);
 
   const loadPlayers = () => {
-    const teamId = getChengduDadieTeamId();
-    const loadedPlayers = storage.getPlayersByTeam(teamId);
-    setPlayers(loadedPlayers);
+    try {
+      const teamId = getChengduDadieTeamId();
+      const loadedPlayers = storage.getPlayersByTeam(teamId);
+      // 过滤掉旧格式的数据（没有 birthday 字段的）
+      const validPlayers = loadedPlayers.filter(p => p.birthday);
+      setPlayers(validPlayers);
+    } catch (error) {
+      console.error('加载球员数据失败:', error);
+      setPlayers([]);
+    }
   };
 
   const handleAddPlayer = () => {
