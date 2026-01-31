@@ -312,38 +312,34 @@ export default function PlayersPage() {
                       
                       return (
                         <Card key={player.id} className="overflow-hidden hover:shadow-lg transition-shadow">
-                          <CardHeader className="pb-3 bg-gradient-to-r from-red-500 to-red-600">
-                            <div className="flex items-start justify-between">
-                              <div className="flex items-center gap-3">
-                                <div className="relative">
-                                  {player.photo ? (
-                                    <div className="w-14 h-14 rounded-full overflow-hidden bg-white shadow-lg">
-                                      <img
-                                        src={player.photo}
-                                        alt={player.name}
-                                        className="w-full h-full object-cover"
-                                      />
-                                    </div>
-                                  ) : (
-                                    <div className="flex items-center justify-center w-14 h-14 rounded-full bg-white text-red-600 font-bold text-xl shadow-lg">
-                                      {player.number}
-                                    </div>
-                                  )}
-                                  {player.isCaptain && (
-                                    <div className="absolute -top-1 -right-1 w-5 h-5 bg-yellow-400 rounded-full flex items-center justify-center shadow-md">
-                                      <Shield className="h-3 w-3 text-white" />
-                                    </div>
-                                  )}
-                                </div>
-                                <div className="text-white">
-                                  <CardTitle className="text-base flex items-center gap-2">
-                                    {player.name}
-                                  </CardTitle>
-                                  <p className="text-xs text-red-100 mt-1">
-                                    {playerAge}岁 · #{player.number}
-                                  </p>
-                                </div>
+                          <CardHeader className="pb-4 bg-gradient-to-r from-red-500 to-red-600">
+                            <div className="flex flex-col items-center text-center">
+                              <div className="relative mb-3">
+                                {player.photo ? (
+                                  <div className="w-24 h-24 rounded-full overflow-hidden bg-white shadow-lg">
+                                    <img
+                                      src={player.photo}
+                                      alt={player.name}
+                                      className="w-full h-full object-cover"
+                                    />
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center justify-center w-24 h-24 rounded-full bg-white text-red-600 font-bold text-3xl shadow-lg">
+                                    {player.number}
+                                  </div>
+                                )}
+                                {player.isCaptain && (
+                                  <div className="absolute -top-1 -right-1 w-7 h-7 bg-yellow-400 rounded-full flex items-center justify-center shadow-md">
+                                    <Shield className="h-4 w-4 text-white" />
+                                  </div>
+                                )}
                               </div>
+                              <CardTitle className="text-lg text-white">
+                                {player.name}
+                              </CardTitle>
+                              <p className="text-sm text-red-100 mt-1">
+                                {playerAge}岁 · #{player.number}
+                              </p>
                             </div>
                           </CardHeader>
                           <CardContent className="pt-4">
