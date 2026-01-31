@@ -218,16 +218,16 @@ export default function PlayersPage() {
                   <div className="space-y-2">
                     <Label htmlFor="player-secondary-position">第二位置</Label>
                     <Select 
-                      value={newPlayer.secondaryPosition || ''} 
-                      onValueChange={(value: PlayerPosition | '') => 
-                        setNewPlayer({ ...newPlayer, secondaryPosition: value || null })
+                      value={newPlayer.secondaryPosition || 'none'} 
+                      onValueChange={(value: PlayerPosition | 'none') => 
+                        setNewPlayer({ ...newPlayer, secondaryPosition: value === 'none' ? null : value })
                       }
                     >
                       <SelectTrigger id="player-secondary-position">
                         <SelectValue placeholder="可选" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">无</SelectItem>
+                        <SelectItem value="none">无</SelectItem>
                         {Object.entries(POSITION_LABELS).map(([value, label]) => (
                           <SelectItem key={value} value={value}>{label}</SelectItem>
                         ))}
