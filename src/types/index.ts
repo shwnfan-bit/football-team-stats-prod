@@ -1,5 +1,14 @@
 // 足球队数据统计应用类型定义
 
+export const POSITION_LABELS: Record<PlayerPosition, string> = {
+  goalkeeper: '门将',
+  'center-back': '中后卫',
+  'full-back': '边后卫',
+  midfielder: '中场',
+  'wing-midfielder': '边前卫',
+  forward: '前锋',
+};
+
 export interface Team {
   id: string;
   name: string;
@@ -15,11 +24,10 @@ export interface Player {
   teamId: string;
   name: string;
   number: number;
-  position: PlayerPosition;
-  age?: number;
+  positions: [PlayerPosition, PlayerPosition | null]; // 第一位置、第二位置
+  birthday: string; // 生日 YYYY-MM-DD
   height?: number;
   weight?: number;
-  nationality?: string;
   isCaptain?: boolean;
   photo?: string;
   createdAt: number;
@@ -27,8 +35,10 @@ export interface Player {
 
 export type PlayerPosition =
   | 'goalkeeper'
-  | 'defender'
+  | 'center-back'
+  | 'full-back'
   | 'midfielder'
+  | 'wing-midfielder'
   | 'forward';
 
 export interface Match {
@@ -78,7 +88,7 @@ export interface PlayerSeasonStats {
   playerId: string;
   playerName: string;
   playerNumber: number;
-  position: PlayerPosition;
+  positions: [PlayerPosition, PlayerPosition | null];
   matchesPlayed: number;
   goals: number;
   assists: number;

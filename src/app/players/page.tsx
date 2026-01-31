@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, UserPlus, Trash2, Edit2, Shield, Flag } from 'lucide-react';
+import { Plus, UserPlus, Trash2, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -9,63 +9,47 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { storage, generateId } from '@/lib/storage';
-import { Player, PlayerPosition, Team } from '@/types';
-
-const positionLabels: Record<PlayerPosition, string> = {
-  goalkeeper: '门将',
-  defender: '后卫',
-  midfielder: '中场',
-  forward: '前锋',
-};
+import { initializeChengduDadieTeam, getChengduDadieTeamId, calculateAge } from '@/lib/team';
+import { Player, PlayerPosition, POSITION_LABELS } from '@/types';
 
 export default function PlayersPage() {
   const [players, setPlayers] = useState<Player[]>([]);
-  const [teams, setTeams] = useState<Team[]>([]);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [selectedTeam, setSelectedTeam] = useState<string>('all');
   const [newPlayer, setNewPlayer] = useState({
-    teamId: '',
     name: '',
     number: '',
-    position: 'midfielder' as PlayerPosition,
-    age: '',
+    primaryPosition: 'midfielder' as PlayerPosition,
+    secondaryPosition: null as PlayerPosition | null,
+    birthday: '',
     height: '',
     weight: '',
-    nationality: '',
     isCaptain: false,
   });
 
   useEffect(() => {
+    initializeChengduDadieTeam();
     loadPlayers();
-    loadTeams();
   }, []);
 
   const loadPlayers = () => {
-    const loadedPlayers = storage.getPlayers();
+    const teamId = getChengduDadieTeamId();
+    const loadedPlayers = storage.getPlayersByTeam(teamId);
     setPlayers(loadedPlayers);
   };
 
-  const loadTeams = () => {
-    const loadedTeams = storage.getTeams();
-    setTeams(loadedTeams);
-    if (loadedTeams.length > 0 && !newPlayer.teamId) {
-      setNewPlayer({ ...newPlayer, teamId: loadedTeams[0].id });
-    }
-  };
-
   const handleAddPlayer = () => {
-    if (!newPlayer.name.trim() || !newPlayer.number || !newPlayer.teamId) return;
+    if (!newPlayer.name.trim() || !newPlayer.number || !newPlayer.birthday) return;
 
+    const teamId = getChengduDadieTeamId();
     const player: Player = {
       id: generateId(),
-      teamId: newPlayer.teamId,
+      teamId,
       name: newPlayer.name,
       number: parseInt(newPlayer.number),
-      position: newPlayer.position,
-      age: newPlayer.age ? parseInt(newPlayer.age) : undefined,
+      positions: [newPlayer.primaryPosition, newPlayer.secondaryPosition],
+      birthday: newPlayer.birthday,
       height: newPlayer.height ? parseInt(newPlayer.height) : undefined,
       weight: newPlayer.weight ? parseInt(newPlayer.weight) : undefined,
-      nationality: newPlayer.nationality || undefined,
       isCaptain: newPlayer.isCaptain,
       createdAt: Date.now(),
     };
@@ -73,15 +57,18 @@ export default function PlayersPage() {
     storage.addPlayer(player);
     setPlayers([...players, player]);
     setIsAddDialogOpen(false);
+    resetForm();
+  };
+
+  const resetForm = () => {
     setNewPlayer({
-      teamId: teams[0]?.id || '',
       name: '',
       number: '',
-      position: 'midfielder',
-      age: '',
+      primaryPosition: 'midfielder',
+      secondaryPosition: null,
+      birthday: '',
       height: '',
       weight: '',
-      nationality: '',
       isCaptain: false,
     });
   };
@@ -93,30 +80,19 @@ export default function PlayersPage() {
     }
   };
 
-  const getTeamName = (teamId: string) => {
-    const team = teams.find(t => t.id === teamId);
-    return team?.name || '未知球队';
-  };
-
-  const getTeamColor = (teamId: string) => {
-    const team = teams.find(t => t.id === teamId);
-    return team?.color || '#3b82f6';
-  };
-
-  const filteredPlayers = selectedTeam === 'all' 
-    ? players 
-    : players.filter(p => p.teamId === selectedTeam);
-
-  const groupedPlayers = filteredPlayers.reduce((acc, player) => {
-    if (!acc[player.position]) {
-      acc[player.position] = [];
+  const groupedPlayers = players.reduce((acc, player) => {
+    const primaryPos = player.positions[0];
+    if (!acc[primaryPos]) {
+      acc[primaryPos] = [];
     }
-    acc[player.position].push(player);
+    acc[primaryPos].push(player);
     return acc;
   }, {} as Record<PlayerPosition, Player[]>);
 
+  const age = newPlayer.birthday ? calculateAge(newPlayer.birthday) : 0;
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 pb-20 md:pb-0 pt-16 md:pt-16">
+    <div className="min-h-screen bg-gradient-to-br from-red-50 to-slate-100 dark:from-red-950/20 dark:to-slate-900 pb-20 md:pb-0 pt-16 md:pt-16">
       <div className="container mx-auto px-4 py-6">
         {/* Header */}
         <div className="mb-6">
@@ -124,52 +100,24 @@ export default function PlayersPage() {
             👥 球员管理
           </h1>
           <p className="text-sm text-slate-600 dark:text-slate-400">
-            管理球队球员信息
+            管理成都老爹队球员信息
           </p>
         </div>
 
         {/* Controls */}
-        <div className="mb-6 flex flex-col sm:flex-row gap-4">
-          <Select value={selectedTeam} onValueChange={setSelectedTeam}>
-            <SelectTrigger className="sm:w-[200px]">
-              <SelectValue placeholder="选择球队" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">全部球队</SelectItem>
-              {teams.map(team => (
-                <SelectItem key={team.id} value={team.id}>{team.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
+        <div className="mb-6">
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
-              <Button className="gap-2 w-full sm:w-auto">
+              <Button className="gap-2">
                 <UserPlus className="h-4 w-4" />
                 添加球员
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>添加新球员</DialogTitle>
               </DialogHeader>
               <div className="space-y-4 pt-4">
-                <div className="space-y-2">
-                  <Label htmlFor="player-team">所属球队 *</Label>
-                  <Select 
-                    value={newPlayer.teamId} 
-                    onValueChange={(value) => setNewPlayer({ ...newPlayer, teamId: value })}
-                  >
-                    <SelectTrigger id="player-team">
-                      <SelectValue placeholder="选择球队" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {teams.map(team => (
-                        <SelectItem key={team.id} value={team.id}>{team.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
                 <div className="space-y-2">
                   <Label htmlFor="player-name">球员姓名 *</Label>
                   <Input
@@ -179,45 +127,68 @@ export default function PlayersPage() {
                     onChange={(e) => setNewPlayer({ ...newPlayer, name: e.target.value })}
                   />
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="player-number">球衣号码 *</Label>
+                  <Input
+                    id="player-number"
+                    type="number"
+                    placeholder="10"
+                    value={newPlayer.number}
+                    onChange={(e) => setNewPlayer({ ...newPlayer, number: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="player-birthday">生日 *</Label>
+                  <Input
+                    id="player-birthday"
+                    type="date"
+                    value={newPlayer.birthday}
+                    onChange={(e) => setNewPlayer({ ...newPlayer, birthday: e.target.value })}
+                  />
+                  {age > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      年龄：{age} 岁
+                    </p>
+                  )}
+                </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="player-number">球衣号码 *</Label>
-                    <Input
-                      id="player-number"
-                      type="number"
-                      placeholder="10"
-                      value={newPlayer.number}
-                      onChange={(e) => setNewPlayer({ ...newPlayer, number: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="player-position">位置 *</Label>
+                    <Label htmlFor="player-primary-position">第一位置 *</Label>
                     <Select 
-                      value={newPlayer.position} 
-                      onValueChange={(value: PlayerPosition) => setNewPlayer({ ...newPlayer, position: value })}
+                      value={newPlayer.primaryPosition} 
+                      onValueChange={(value: PlayerPosition) => setNewPlayer({ ...newPlayer, primaryPosition: value })}
                     >
-                      <SelectTrigger id="player-position">
+                      <SelectTrigger id="player-primary-position">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {Object.entries(positionLabels).map(([value, label]) => (
+                        {Object.entries(POSITION_LABELS).map(([value, label]) => (
+                          <SelectItem key={value} value={value}>{label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="player-secondary-position">第二位置</Label>
+                    <Select 
+                      value={newPlayer.secondaryPosition || ''} 
+                      onValueChange={(value: PlayerPosition | '') => 
+                        setNewPlayer({ ...newPlayer, secondaryPosition: value || null })
+                      }
+                    >
+                      <SelectTrigger id="player-secondary-position">
+                        <SelectValue placeholder="可选" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">无</SelectItem>
+                        {Object.entries(POSITION_LABELS).map(([value, label]) => (
                           <SelectItem key={value} value={value}>{label}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
                 </div>
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="player-age">年龄</Label>
-                    <Input
-                      id="player-age"
-                      type="number"
-                      placeholder="25"
-                      value={newPlayer.age}
-                      onChange={(e) => setNewPlayer({ ...newPlayer, age: e.target.value })}
-                    />
-                  </div>
+                <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="player-height">身高(cm)</Label>
                     <Input
@@ -239,14 +210,14 @@ export default function PlayersPage() {
                     />
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="player-nationality">国籍</Label>
-                  <Input
-                    id="player-nationality"
-                    placeholder="阿根廷"
-                    value={newPlayer.nationality}
-                    onChange={(e) => setNewPlayer({ ...newPlayer, nationality: e.target.value })}
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="is-captain"
+                    checked={newPlayer.isCaptain}
+                    onChange={(e) => setNewPlayer({ ...newPlayer, isCaptain: e.target.checked })}
                   />
+                  <Label htmlFor="is-captain" className="cursor-pointer">队长</Label>
                 </div>
                 <Button onClick={handleAddPlayer} className="w-full">
                   添加球员
@@ -257,7 +228,7 @@ export default function PlayersPage() {
         </div>
 
         {/* Players List */}
-        {filteredPlayers.length === 0 ? (
+        {players.length === 0 ? (
           <Card className="border-dashed">
             <CardContent className="flex flex-col items-center justify-center py-12">
               <UserPlus className="h-16 w-16 text-slate-300 dark:text-slate-600 mb-4" />
@@ -265,10 +236,7 @@ export default function PlayersPage() {
                 暂无球员
               </h3>
               <p className="text-sm text-slate-600 dark:text-slate-400 text-center max-w-md mb-4">
-                {teams.length === 0 
-                  ? '请先创建球队，然后添加球员'
-                  : '点击添加按钮创建第一个球员'
-                }
+                点击添加按钮创建第一个球员
               </p>
             </CardContent>
           </Card>
@@ -277,50 +245,44 @@ export default function PlayersPage() {
             {Object.entries(groupedPlayers).map(([position, positionPlayers]) => (
               <div key={position}>
                 <h3 className="text-lg font-semibold mb-3 text-slate-700 dark:text-slate-300">
-                  {positionLabels[position as PlayerPosition]} ({positionPlayers.length})
+                  {POSITION_LABELS[position as PlayerPosition]} ({positionPlayers.length})
                 </h3>
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                   {positionPlayers.map((player) => {
-                    const teamColor = getTeamColor(player.teamId);
+                    const playerAge = calculateAge(player.birthday);
+                    const positionLabels = player.positions
+                      .filter(p => p !== null)
+                      .map(p => POSITION_LABELS[p])
+                      .join(' / ');
+                    
                     return (
                       <Card key={player.id} className="overflow-hidden hover:shadow-lg transition-shadow">
-                        <CardHeader className="pb-3" style={{ backgroundColor: `${teamColor}15` }}>
+                        <CardHeader className="pb-3 bg-gradient-to-r from-red-500 to-red-600">
                           <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2">
-                                <div 
-                                  className="flex items-center justify-center w-12 h-12 rounded-full text-white font-bold text-lg"
-                                  style={{ backgroundColor: teamColor }}
-                                >
-                                  {player.number}
-                                </div>
-                                <div>
-                                  <CardTitle className="text-base flex items-center gap-2">
-                                    {player.name}
-                                    {player.isCaptain && (
-                                      <Shield className="h-4 w-4 text-yellow-500" />
-                                    )}
-                                  </CardTitle>
-                                  <p className="text-xs text-muted-foreground mt-1">
-                                    {getTeamName(player.teamId)}
-                                  </p>
-                                </div>
+                            <div className="flex items-center gap-3">
+                              <div className="flex items-center justify-center w-14 h-14 rounded-full bg-white text-red-600 font-bold text-xl shadow-lg">
+                                {player.number}
+                              </div>
+                              <div className="text-white">
+                                <CardTitle className="text-base flex items-center gap-2">
+                                  {player.name}
+                                  {player.isCaptain && (
+                                    <Shield className="h-4 w-4 text-yellow-300" />
+                                  )}
+                                </CardTitle>
+                                <p className="text-xs text-red-100 mt-1">
+                                  {playerAge}岁
+                                </p>
                               </div>
                             </div>
                           </div>
                         </CardHeader>
                         <CardContent className="pt-4">
-                          <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div className="space-y-2 text-xs">
                             <div className="flex justify-between">
                               <span className="text-muted-foreground">位置</span>
-                              <span className="font-medium">{positionLabels[player.position]}</span>
+                              <span className="font-medium">{positionLabels}</span>
                             </div>
-                            {player.age && (
-                              <div className="flex justify-between">
-                                <span className="text-muted-foreground">年龄</span>
-                                <span className="font-medium">{player.age}</span>
-                              </div>
-                            )}
                             {player.height && (
                               <div className="flex justify-between">
                                 <span className="text-muted-foreground">身高</span>
@@ -333,12 +295,10 @@ export default function PlayersPage() {
                                 <span className="font-medium">{player.weight}kg</span>
                               </div>
                             )}
-                            {player.nationality && (
-                              <div className="flex justify-between col-span-2">
-                                <span className="text-muted-foreground">国籍</span>
-                                <span className="font-medium">{player.nationality}</span>
-                              </div>
-                            )}
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">生日</span>
+                              <span className="font-medium">{new Date(player.birthday).toLocaleDateString('zh-CN')}</span>
+                            </div>
                           </div>
                           <div className="mt-4 pt-4 border-t flex justify-end">
                             <Button

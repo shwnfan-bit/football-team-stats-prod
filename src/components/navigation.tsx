@@ -7,7 +7,6 @@ import { cn } from '@/lib/utils';
 
 const navItems = [
   { href: '/', icon: Home, label: '首页' },
-  { href: '/teams', icon: Users, label: '球队' },
   { href: '/players', icon: Trophy, label: '球员' },
   { href: '/matches', icon: ClipboardList, label: '比赛' },
   { href: '/stats', icon: BarChart3, label: '统计' },

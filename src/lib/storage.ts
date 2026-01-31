@@ -2,6 +2,8 @@
 
 import { Team, Player, Match, Season } from '@/types';
 
+export type { Team, Player, Match, Season };
+
 const STORAGE_KEYS = {
   TEAMS: 'football_teams',
   PLAYERS: 'football_players',

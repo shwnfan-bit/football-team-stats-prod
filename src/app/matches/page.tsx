@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Calendar, MapPin, Trophy, Trash2, Edit2, Home, Plane } from 'lucide-react';
+import { Plus, Calendar, MapPin, Trash2, Home, Plane } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -11,7 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { storage, generateId } from '@/lib/storage';
-import { Match, MatchStatus, Team, Player, PlayerMatchStats } from '@/types';
+import { initializeChengduDadieTeam, getChengduDadieTeamId } from '@/lib/team';
+import { Match, MatchStatus } from '@/types';
 
 const statusLabels: Record<MatchStatus, string> = {
   'scheduled': '未开始',
@@ -29,11 +30,8 @@ const statusColors: Record<MatchStatus, string> = {
 
 export default function MatchesPage() {
   const [matches, setMatches] = useState<Match[]>([]);
-  const [teams, setTeams] = useState<Team[]>([]);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [selectedTeam, setSelectedTeam] = useState<string>('all');
   const [newMatch, setNewMatch] = useState({
-    teamId: '',
     opponent: '',
     date: '',
     isHome: true,
@@ -44,29 +42,23 @@ export default function MatchesPage() {
   });
 
   useEffect(() => {
+    initializeChengduDadieTeam();
     loadMatches();
-    loadTeams();
   }, []);
 
   const loadMatches = () => {
-    const loadedMatches = storage.getMatches();
+    const teamId = getChengduDadieTeamId();
+    const loadedMatches = storage.getMatchesByTeam(teamId);
     setMatches(loadedMatches);
   };
 
-  const loadTeams = () => {
-    const loadedTeams = storage.getTeams();
-    setTeams(loadedTeams);
-    if (loadedTeams.length > 0 && !newMatch.teamId) {
-      setNewMatch({ ...newMatch, teamId: loadedTeams[0].id });
-    }
-  };
-
   const handleAddMatch = () => {
-    if (!newMatch.teamId || !newMatch.opponent || !newMatch.date) return;
+    if (!newMatch.opponent || !newMatch.date) return;
 
+    const teamId = getChengduDadieTeamId();
     const match: Match = {
       id: generateId(),
-      teamId: newMatch.teamId,
+      teamId,
       opponent: newMatch.opponent,
       date: newMatch.date,
       isHome: newMatch.isHome,
@@ -88,7 +80,6 @@ export default function MatchesPage() {
 
   const resetForm = () => {
     setNewMatch({
-      teamId: teams[0]?.id || '',
       opponent: '',
       date: '',
       isHome: true,
@@ -106,21 +97,7 @@ export default function MatchesPage() {
     }
   };
 
-  const getTeamName = (teamId: string) => {
-    const team = teams.find(t => t.id === teamId);
-    return team?.name || '未知球队';
-  };
-
-  const getTeamColor = (teamId: string) => {
-    const team = teams.find(t => t.id === teamId);
-    return team?.color || '#3b82f6';
-  };
-
-  const filteredMatches = selectedTeam === 'all' 
-    ? matches 
-    : matches.filter(m => m.teamId === selectedTeam);
-
-  const sortedMatches = [...filteredMatches].sort((a, b) => 
+  const sortedMatches = [...matches].sort((a, b) => 
     new Date(b.date).getTime() - new Date(a.date).getTime()
   );
 
@@ -132,7 +109,7 @@ export default function MatchesPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 pb-20 md:pb-0 pt-16 md:pt-16">
+    <div className="min-h-screen bg-gradient-to-br from-red-50 to-slate-100 dark:from-red-950/20 dark:to-slate-900 pb-20 md:pb-0 pt-16 md:pt-16">
       <div className="container mx-auto px-4 py-6">
         {/* Header */}
         <div className="mb-6">
@@ -140,27 +117,15 @@ export default function MatchesPage() {
             📊 比赛管理
           </h1>
           <p className="text-sm text-slate-600 dark:text-slate-400">
-            记录和管理比赛数据
+            成都老爹队比赛记录
           </p>
         </div>
 
         {/* Controls */}
-        <div className="mb-6 flex flex-col sm:flex-row gap-4">
-          <Select value={selectedTeam} onValueChange={setSelectedTeam}>
-            <SelectTrigger className="sm:w-[200px]">
-              <SelectValue placeholder="选择球队" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">全部球队</SelectItem>
-              {teams.map(team => (
-                <SelectItem key={team.id} value={team.id}>{team.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
+        <div className="mb-6">
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
-              <Button className="gap-2 w-full sm:w-auto">
+              <Button className="gap-2">
                 <Plus className="h-4 w-4" />
                 添加比赛
               </Button>
@@ -170,22 +135,6 @@ export default function MatchesPage() {
                 <DialogTitle>添加新比赛</DialogTitle>
               </DialogHeader>
               <div className="space-y-4 pt-4">
-                <div className="space-y-2">
-                  <Label htmlFor="match-team">球队 *</Label>
-                  <Select 
-                    value={newMatch.teamId} 
-                    onValueChange={(value) => setNewMatch({ ...newMatch, teamId: value })}
-                  >
-                    <SelectTrigger id="match-team">
-                      <SelectValue placeholder="选择球队" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {teams.map(team => (
-                        <SelectItem key={team.id} value={team.id}>{team.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
                 <div className="space-y-2">
                   <Label htmlFor="match-opponent">对手 *</Label>
                   <Input
@@ -259,7 +208,7 @@ export default function MatchesPage() {
                       <div className="flex-1">
                         <Input
                           type="number"
-                          placeholder="主队进球"
+                          placeholder="我方进球"
                           value={newMatch.homeScore}
                           onChange={(e) => setNewMatch({ ...newMatch, homeScore: e.target.value })}
                         />
@@ -268,7 +217,7 @@ export default function MatchesPage() {
                       <div className="flex-1">
                         <Input
                           type="number"
-                          placeholder="客队进球"
+                          placeholder="对手进球"
                           value={newMatch.awayScore}
                           onChange={(e) => setNewMatch({ ...newMatch, awayScore: e.target.value })}
                         />
@@ -293,10 +242,7 @@ export default function MatchesPage() {
                 暂无比赛记录
               </h3>
               <p className="text-sm text-slate-600 dark:text-slate-400 text-center max-w-md mb-4">
-                {teams.length === 0 
-                  ? '请先创建球队，然后添加比赛'
-                  : '点击添加按钮记录第一场比赛'
-                }
+                点击添加按钮记录第一场比赛
               </p>
             </CardContent>
           </Card>
@@ -312,9 +258,6 @@ export default function MatchesPage() {
             <TabsContent value="all" className="space-y-4">
               <MatchList 
                 matches={sortedMatches} 
-                teams={teams} 
-                getTeamName={getTeamName}
-                getTeamColor={getTeamColor}
                 handleDeleteMatch={handleDeleteMatch}
                 statusLabels={statusLabels}
                 statusColors={statusColors}
@@ -324,9 +267,6 @@ export default function MatchesPage() {
             <TabsContent value="in-progress" className="space-y-4">
               <MatchList 
                 matches={matchesByStatus['in-progress']} 
-                teams={teams} 
-                getTeamName={getTeamName}
-                getTeamColor={getTeamColor}
                 handleDeleteMatch={handleDeleteMatch}
                 statusLabels={statusLabels}
                 statusColors={statusColors}
@@ -336,9 +276,6 @@ export default function MatchesPage() {
             <TabsContent value="completed" className="space-y-4">
               <MatchList 
                 matches={matchesByStatus['completed']} 
-                teams={teams} 
-                getTeamName={getTeamName}
-                getTeamColor={getTeamColor}
                 handleDeleteMatch={handleDeleteMatch}
                 statusLabels={statusLabels}
                 statusColors={statusColors}
@@ -348,9 +285,6 @@ export default function MatchesPage() {
             <TabsContent value="scheduled" className="space-y-4">
               <MatchList 
                 matches={matchesByStatus['scheduled']} 
-                teams={teams} 
-                getTeamName={getTeamName}
-                getTeamColor={getTeamColor}
                 handleDeleteMatch={handleDeleteMatch}
                 statusLabels={statusLabels}
                 statusColors={statusColors}
@@ -363,7 +297,7 @@ export default function MatchesPage() {
   );
 }
 
-function MatchList({ matches, teams, getTeamName, getTeamColor, handleDeleteMatch, statusLabels, statusColors }: any) {
+function MatchList({ matches, handleDeleteMatch, statusLabels, statusColors }: any) {
   if (matches.length === 0) {
     return (
       <Card className="border-dashed">
@@ -377,9 +311,6 @@ function MatchList({ matches, teams, getTeamName, getTeamColor, handleDeleteMatc
   return (
     <div className="space-y-4">
       {matches.map((match: Match) => {
-        const teamColor = getTeamColor(match.teamId);
-        const teamName = getTeamName(match.teamId);
-        
         return (
           <Card key={match.id} className="overflow-hidden hover:shadow-lg transition-shadow">
             <CardContent className="p-0">
@@ -395,7 +326,7 @@ function MatchList({ matches, teams, getTeamName, getTeamColor, handleDeleteMatc
                   
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <h3 className="font-semibold truncate">{teamName}</h3>
+                      <h3 className="font-semibold truncate">成都老爹队</h3>
                       <span className="text-muted-foreground">vs</span>
                       <h3 className="font-semibold truncate">{match.opponent}</h3>
                     </div>
@@ -418,7 +349,7 @@ function MatchList({ matches, teams, getTeamName, getTeamColor, handleDeleteMatc
                 <div className="flex items-center gap-4">
                   {(match.status === 'completed' || match.status === 'in-progress') && (
                     <div className="text-center">
-                      <div className="text-2xl font-bold" style={{ color: teamColor }}>
+                      <div className="text-2xl font-bold text-red-600 dark:text-red-400">
                         {match.score.home} - {match.score.away}
                       </div>
                     </div>

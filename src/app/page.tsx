@@ -1,253 +1,194 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Users, TrendingUp, Calendar, MoreVertical, Edit2, Trash2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Users, TrendingUp, Calendar, Trophy, Target } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { storage, generateId } from '@/lib/storage';
-import { Team, Match, Player } from '@/types';
+import { storage } from '@/lib/storage';
+import { initializeChengduDadieTeam, getChengduDadieTeamId, calculateAge } from '@/lib/team';
+import { Match, Player } from '@/types';
 
 export default function HomePage() {
-  const [teams, setTeams] = useState<Team[]>([]);
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [newTeam, setNewTeam] = useState({
-    name: '',
-    color: '#3b82f6',
-    foundedYear: new Date().getFullYear().toString(),
-    coach: '',
-  });
+  const [players, setPlayers] = useState<Player[]>([]);
+  const [matches, setMatches] = useState<Match[]>([]);
+  const [teamStats, setTeamStats] = useState<any>(null);
+  const [latestMatches, setLatestMatches] = useState<Match[]>([]);
 
   useEffect(() => {
-    loadTeams();
+    initializeChengduDadieTeam();
+    loadData();
   }, []);
 
-  const loadTeams = () => {
-    const loadedTeams = storage.getTeams();
-    setTeams(loadedTeams);
-  };
+  const loadData = () => {
+    const teamId = getChengduDadieTeamId();
+    const allPlayers = storage.getPlayersByTeam(teamId);
+    const allMatches = storage.getMatchesByTeam(teamId);
+    const completedMatches = allMatches.filter(m => m.status === 'completed');
 
-  const handleAddTeam = () => {
-    if (!newTeam.name.trim()) return;
+    // 计算球队统计
+    const wins = completedMatches.filter(m => m.score.home > m.score.away).length;
+    const draws = completedMatches.filter(m => m.score.home === m.score.away).length;
+    const losses = completedMatches.filter(m => m.score.home < m.score.away).length;
+    const goalsFor = completedMatches.reduce((sum, m) => sum + m.score.home, 0);
+    const goalsAgainst = completedMatches.reduce((sum, m) => sum + m.score.away, 0);
+    const cleanSheets = completedMatches.filter(m => m.score.away === 0).length;
 
-    const team: Team = {
-      id: generateId(),
-      name: newTeam.name,
-      color: newTeam.color,
-      foundedYear: parseInt(newTeam.foundedYear),
-      coach: newTeam.coach || undefined,
-      createdAt: Date.now(),
-    };
-
-    storage.addTeam(team);
-    setTeams([...teams, team]);
-    setIsAddDialogOpen(false);
-    setNewTeam({
-      name: '',
-      color: '#3b82f6',
-      foundedYear: new Date().getFullYear().toString(),
-      coach: '',
-    });
-  };
-
-  const handleDeleteTeam = (teamId: string) => {
-    if (confirm('确定要删除这个球队吗？这将同时删除该球队的所有球员和比赛数据。')) {
-      storage.deleteTeam(teamId);
-      setTeams(teams.filter(t => t.id !== teamId));
-    }
-  };
-
-  const getTeamStats = (teamId: string) => {
-    const matches = storage.getMatchesByTeam(teamId);
-    const players = storage.getPlayersByTeam(teamId);
-    const completedMatches = matches.filter(m => m.status === 'completed');
-    
-    const wins = completedMatches.filter(m => {
-      const teamScore = m.score.home;
-      const opponentScore = m.score.away;
-      return m.isHome ? teamScore > opponentScore : teamScore > opponentScore;
-    }).length;
-    
-    const goals = completedMatches.reduce((sum, m) => sum + m.score.home, 0);
-    
-    return {
-      players: players.length,
+    setPlayers(allPlayers);
+    setMatches(allMatches);
+    setTeamStats({
+      players: allPlayers.length,
       matches: completedMatches.length,
       wins,
-      goals,
-    };
+      draws,
+      losses,
+      goalsFor,
+      goalsAgainst,
+      cleanSheets,
+      winRate: completedMatches.length > 0 ? Math.round((wins / completedMatches.length) * 100) : 0,
+    });
+
+    // 获取最近的比赛
+    const sorted = [...completedMatches].sort((a, b) => 
+      new Date(b.date).getTime() - new Date(a.date).getTime()
+    );
+    setLatestMatches(sorted.slice(0, 5));
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 pb-20 md:pb-0">
+    <div className="min-h-screen bg-gradient-to-br from-red-50 to-slate-100 dark:from-red-950/20 dark:to-slate-900 pb-20 md:pb-0">
       {/* Header */}
       <div className="border-b bg-white/80 backdrop-blur-sm dark:bg-slate-900/80 pt-16 md:pt-0">
         <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-50">
-                ⚽ 足球队管理
-              </h1>
-              <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-                数据统计与分析
-              </p>
-            </div>
-            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-              <DialogTrigger asChild>
-                <Button className="gap-2">
-                  <Plus className="h-4 w-4" />
-                  添加球队
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>创建新球队</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4 pt-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="team-name">球队名称 *</Label>
-                    <Input
-                      id="team-name"
-                      placeholder="例如：曼联"
-                      value={newTeam.name}
-                      onChange={(e) => setNewTeam({ ...newTeam, name: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="team-color">球队颜色</Label>
-                    <div className="flex gap-2">
-                      <Input
-                        id="team-color"
-                        type="color"
-                        value={newTeam.color}
-                        onChange={(e) => setNewTeam({ ...newTeam, color: e.target.value })}
-                        className="w-20 h-10"
-                      />
-                      <Input
-                        value={newTeam.color}
-                        onChange={(e) => setNewTeam({ ...newTeam, color: e.target.value })}
-                        className="flex-1"
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="founded-year">成立年份</Label>
-                    <Input
-                      id="founded-year"
-                      type="number"
-                      value={newTeam.foundedYear}
-                      onChange={(e) => setNewTeam({ ...newTeam, foundedYear: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="coach">主教练</Label>
-                    <Input
-                      id="coach"
-                      placeholder="可选"
-                      value={newTeam.coach}
-                      onChange={(e) => setNewTeam({ ...newTeam, coach: e.target.value })}
-                    />
-                  </div>
-                  <Button onClick={handleAddTeam} className="w-full">
-                    创建球队
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight text-red-600 dark:text-red-400">
+              🏆 成都老爹队
+            </h1>
+            <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
+              数据统计与分析
+            </p>
           </div>
         </div>
       </div>
 
       {/* Main Content */}
       <div className="container mx-auto px-4 py-6">
-        {teams.length === 0 ? (
-          <Card className="border-dashed">
-            <CardContent className="flex flex-col items-center justify-center py-12">
-              <Users className="h-16 w-16 text-slate-300 dark:text-slate-600 mb-4" />
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-50 mb-2">
-                暂无球队
-              </h3>
-              <p className="text-sm text-slate-600 dark:text-slate-400 text-center max-w-md mb-4">
-                创建你的第一个球队，开始管理球员和比赛数据
-              </p>
-              <Button onClick={() => setIsAddDialogOpen(true)} className="gap-2">
-                <Plus className="h-4 w-4" />
-                添加球队
-              </Button>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {teams.map((team) => {
-              const stats = getTeamStats(team.id);
-              return (
-                <Card key={team.id} className="overflow-hidden hover:shadow-lg transition-shadow">
-                  <CardHeader className="pb-3" style={{ backgroundColor: `${team.color}15` }}>
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <CardTitle className="text-lg">{team.name}</CardTitle>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {team.coach && `主教练：${team.coach}`}
-                          {team.coach && team.foundedYear && ' · '}
-                          {team.foundedYear}年成立
-                        </p>
-                      </div>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem 
-                            className="text-destructive"
-                            onClick={() => handleDeleteTeam(team.id)}
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            删除球队
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+        {teamStats && (
+          <>
+            {/* 球队统计卡片 */}
+            <div className="grid gap-4 md:grid-cols-4 mb-6">
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                    <Users className="h-4 w-4" />
+                    球员数量
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-red-600 dark:text-red-400">
+                    {teamStats.players}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                    <Calendar className="h-4 w-4" />
+                    比赛场次
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-red-600 dark:text-red-400">
+                    {teamStats.matches}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                    <TrendingUp className="h-4 w-4" />
+                    胜率
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-red-600 dark:text-red-400">
+                    {teamStats.winRate}%
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                    <Target className="h-4 w-4" />
+                    总进球
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-red-600 dark:text-red-400">
+                    {teamStats.goalsFor}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* 战绩详情 */}
+            <div className="grid gap-6 md:grid-cols-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle>战绩概览</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex justify-between items-center p-3 bg-green-50 dark:bg-green-950/20 rounded-lg">
+                    <span className="font-medium">胜场</span>
+                    <span className="text-2xl font-bold text-green-600 dark:text-green-400">{teamStats.wins}</span>
+                  </div>
+                  <div className="flex justify-between items-center p-3 bg-yellow-50 dark:bg-yellow-950/20 rounded-lg">
+                    <span className="font-medium">平场</span>
+                    <span className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{teamStats.draws}</span>
+                  </div>
+                  <div className="flex justify-between items-center p-3 bg-red-50 dark:bg-red-950/20 rounded-lg">
+                    <span className="font-medium">负场</span>
+                    <span className="text-2xl font-bold text-red-600 dark:text-red-400">{teamStats.losses}</span>
+                  </div>
+                  <div className="flex justify-between items-center p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                    <span className="font-medium">零封</span>
+                    <span className="text-2xl font-bold">{teamStats.cleanSheets}</span>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>最近比赛</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {latestMatches.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Calendar className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                      <p>暂无比赛记录</p>
                     </div>
-                  </CardHeader>
-                  <CardContent className="pt-4">
-                    <div className="grid grid-cols-3 gap-4">
-                      <div className="text-center">
-                        <div className="text-2xl font-bold" style={{ color: team.color }}>
-                          {stats.players}
+                  ) : (
+                    <div className="space-y-3">
+                      {latestMatches.map((match) => (
+                        <div key={match.id} className="p-3 border rounded-lg">
+                          <div className="flex justify-between items-center">
+                            <span className="font-medium">{match.opponent}</span>
+                            <span className="text-2xl font-bold text-red-600 dark:text-red-400">
+                              {match.score.home} - {match.score.away}
+                            </span>
+                          </div>
+                          <div className="text-xs text-muted-foreground mt-1">
+                            {new Date(match.date).toLocaleDateString('zh-CN')}
+                          </div>
                         </div>
-                        <div className="text-xs text-muted-foreground mt-1">球员</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-2xl font-bold" style={{ color: team.color }}>
-                          {stats.matches}
-                        </div>
-                        <div className="text-xs text-muted-foreground mt-1">比赛</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-2xl font-bold" style={{ color: team.color }}>
-                          {stats.wins}
-                        </div>
-                        <div className="text-xs text-muted-foreground mt-1">胜利</div>
-                      </div>
+                      ))}
                     </div>
-                    <div className="mt-4 pt-4 border-t">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-muted-foreground">总进球</span>
-                        <span className="font-semibold" style={{ color: team.color }}>
-                          {stats.goals}
-                        </span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </>
         )}
       </div>
     </div>
