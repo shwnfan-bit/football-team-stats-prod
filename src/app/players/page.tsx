@@ -312,51 +312,44 @@ export default function PlayersPage() {
                       
                       return (
                         <Card key={player.id} className="overflow-hidden hover:shadow-lg transition-shadow">
-                          <CardHeader className="pb-4 bg-gradient-to-r from-red-500 to-red-600">
-                            <div className="flex flex-col items-center text-center">
-                              <div className="relative mb-3">
-                                {player.photo ? (
-                                  <div className="w-24 h-24 rounded-full overflow-hidden bg-white shadow-lg">
-                                    <img
-                                      src={player.photo}
-                                      alt={player.name}
-                                      className="w-full h-full object-cover"
-                                    />
-                                  </div>
-                                ) : (
-                                  <div className="flex items-center justify-center w-24 h-24 rounded-full bg-white text-red-600 font-bold text-3xl shadow-lg">
-                                    {player.number}
-                                  </div>
-                                )}
-                                {player.isCaptain && (
-                                  <div className="absolute -top-1 -right-1 w-7 h-7 bg-yellow-400 rounded-full flex items-center justify-center shadow-md">
-                                    <Shield className="h-4 w-4 text-white" />
-                                  </div>
-                                )}
+                          {/* 照片区域 - 5:4 比例，全红色区域 */}
+                          <div className="relative aspect-[5/4] bg-gradient-to-r from-red-500 to-red-600 overflow-hidden">
+                            {player.photo ? (
+                              <img
+                                src={player.photo}
+                                alt={player.name}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-white/20">
+                                <User className="w-32 h-32" />
                               </div>
-                              <CardTitle className="text-lg text-white">
+                            )}
+                            {player.isCaptain && (
+                              <div className="absolute top-3 right-3 w-8 h-8 bg-yellow-400 rounded-full flex items-center justify-center shadow-lg">
+                                <Shield className="h-5 w-5 text-white" />
+                              </div>
+                            )}
+                          </div>
+
+                          {/* 白色信息区域 */}
+                          <CardContent className="p-4">
+                            <div className="flex items-center justify-between mb-3">
+                              <CardTitle className="text-xl font-bold flex-1 text-left">
                                 {player.name}
                               </CardTitle>
-                              <p className="text-sm text-red-100 mt-1">
-                                {playerAge}岁 · #{player.number}
-                              </p>
+                              <div className="flex items-center justify-center w-16 h-16 bg-red-500 text-white font-bold text-3xl rounded-lg ml-3">
+                                {player.number}
+                              </div>
                             </div>
-                          </CardHeader>
-                          <CardContent className="pt-4">
-                            <div className="space-y-2 text-xs">
+
+                            <div className="space-y-2 text-sm">
                               <div className="flex justify-between">
                                 <span className="text-muted-foreground">位置</span>
                                 <span className="font-medium">{positionLabels}</span>
                               </div>
-                              <div className="flex justify-between">
-                                <span className="text-muted-foreground">身高</span>
-                                <span className="font-medium">{player.height ? `${player.height}cm` : '-'}</span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-muted-foreground">体重</span>
-                                <span className="font-medium">{player.weight ? `${player.weight}kg` : '-'}</span>
-                              </div>
                             </div>
+
                             <div className="mt-4 pt-4 border-t flex justify-end gap-2">
                               <Button
                                 variant="ghost"
