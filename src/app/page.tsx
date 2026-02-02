@@ -22,32 +22,29 @@ export default function HomePage() {
     const teamId = getChengduDadieTeamId();
     const allPlayers = storage.getPlayersByTeam(teamId);
     const allMatches = storage.getMatchesByTeam(teamId);
-    const completedMatches = allMatches.filter(m => m.status === 'completed');
 
     // 计算球队统计
-    const wins = completedMatches.filter(m => m.score.home > m.score.away).length;
-    const draws = completedMatches.filter(m => m.score.home === m.score.away).length;
-    const losses = completedMatches.filter(m => m.score.home < m.score.away).length;
-    const goalsFor = completedMatches.reduce((sum, m) => sum + m.score.home, 0);
-    const goalsAgainst = completedMatches.reduce((sum, m) => sum + m.score.away, 0);
-    const cleanSheets = completedMatches.filter(m => m.score.away === 0).length;
+    const wins = allMatches.filter(m => m.score.home > m.score.away).length;
+    const draws = allMatches.filter(m => m.score.home === m.score.away).length;
+    const losses = allMatches.filter(m => m.score.home < m.score.away).length;
+    const goalsFor = allMatches.reduce((sum, m) => sum + m.score.home, 0);
+    const goalsAgainst = allMatches.reduce((sum, m) => sum + m.score.away, 0);
 
     setPlayers(allPlayers);
     setMatches(allMatches);
     setTeamStats({
       players: allPlayers.length,
-      matches: completedMatches.length,
+      matches: allMatches.length,
       wins,
       draws,
       losses,
       goalsFor,
       goalsAgainst,
-      cleanSheets,
-      winRate: completedMatches.length > 0 ? Math.round((wins / completedMatches.length) * 100) : 0,
+      winRate: allMatches.length > 0 ? Math.round((wins / allMatches.length) * 100) : 0,
     });
 
     // 获取最近的比赛
-    const sorted = [...completedMatches].sort((a, b) => 
+    const sorted = [...allMatches].sort((a, b) => 
       new Date(b.date).getTime() - new Date(a.date).getTime()
     );
     setLatestMatches(sorted.slice(0, 5));
@@ -150,10 +147,6 @@ export default function HomePage() {
                   <div className="flex justify-between items-center p-3 bg-red-50 dark:bg-red-950/20 rounded-lg">
                     <span className="font-medium">负场</span>
                     <span className="text-2xl font-bold text-red-600 dark:text-red-400">{teamStats.losses}</span>
-                  </div>
-                  <div className="flex justify-between items-center p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
-                    <span className="font-medium">零封</span>
-                    <span className="text-2xl font-bold">{teamStats.cleanSheets}</span>
                   </div>
                 </CardContent>
               </Card>

@@ -1,52 +1,75 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { BarChart3, Trophy, Target, TrendingUp, Users } from 'lucide-react';
+import { BarChart3, Trophy, Target, TrendingUp, Users, Plus, Calendar, MapPin, Flag } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
-import { storage } from '@/lib/storage';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
+import { storage, generateId } from '@/lib/storage';
 import { initializeChengduDadieTeam, getChengduDadieTeamId } from '@/lib/team';
-import { Match, Player, PlayerSeasonStats, POSITION_LABELS } from '@/types';
+import { Match, Player, PlayerSeasonStats, PlayerPosition, POSITION_LABELS } from '@/types';
 
 export default function StatsPage() {
   const [playerStats, setPlayerStats] = useState<PlayerSeasonStats[]>([]);
   const [teamStats, setTeamStats] = useState<any>(null);
+  const [isAddMatchDialogOpen, setIsAddMatchDialogOpen] = useState(false);
+  const [players, setPlayers] = useState<Player[]>([]);
+  const [newMatch, setNewMatch] = useState({
+    opponent: '',
+    date: '',
+    location: '',
+    matchType: 'home' as 'home' | 'away',
+    matchNature: 'friendly' as 'friendly' | 'internal' | 'cup' | 'league',
+    scoreHome: 0,
+    scoreAway: 0,
+    playerStats: {} as Record<string, { isPlaying: boolean; goals: number; assists: number }>,
+  });
 
   useEffect(() => {
     initializeChengduDadieTeam();
     calculateStats();
+    loadPlayers();
   }, []);
+
+  const loadPlayers = () => {
+    const teamId = getChengduDadieTeamId();
+    const loadedPlayers = storage.getPlayersByTeam(teamId);
+    setPlayers(loadedPlayers);
+  };
 
   const calculateStats = () => {
     const teamId = getChengduDadieTeamId();
     const matches = storage.getMatchesByTeam(teamId);
-    const players = storage.getPlayersByTeam(teamId);
-    const completedMatches = matches.filter(m => m.status === 'completed');
-
-    // 计算球队统计
-    const wins = completedMatches.filter(m => m.score.home > m.score.away).length;
-    const draws = completedMatches.filter(m => m.score.home === m.score.away).length;
-    const losses = completedMatches.filter(m => m.score.home < m.score.away).length;
-    const goalsFor = completedMatches.reduce((sum, m) => sum + m.score.home, 0);
-    const goalsAgainst = completedMatches.reduce((sum, m) => sum + m.score.away, 0);
-    const cleanSheets = completedMatches.filter(m => m.score.away === 0).length;
+    const allPlayers = storage.getPlayersByTeam(teamId);
+    
+    // 使用所有比赛计算统计（不过滤 completed）
+    const wins = matches.filter(m => m.score.home > m.score.away).length;
+    const draws = matches.filter(m => m.score.home === m.score.away).length;
+    const losses = matches.filter(m => m.score.home < m.score.away).length;
+    const goalsFor = matches.reduce((sum, m) => sum + m.score.home, 0);
+    const goalsAgainst = matches.reduce((sum, m) => sum + m.score.away, 0);
+    const cleanSheets = matches.filter(m => m.score.away === 0).length;
 
     setTeamStats({
-      totalMatches: completedMatches.length,
+      totalMatches: matches.length,
       wins,
       draws,
       losses,
       goalsFor,
       goalsAgainst,
       cleanSheets,
-      winRate: completedMatches.length > 0 ? Math.round((wins / completedMatches.length) * 100) : 0,
+      winRate: matches.length > 0 ? Math.round((wins / matches.length) * 100) : 0,
     });
 
-    // 计算球员统计（简化版，基于比赛数据）
-    const stats: PlayerSeasonStats[] = players.map(player => {
-      const playerMatches = completedMatches.filter(m => 
-        m.playerStats.some(ps => ps.player.id === player.id)
+    // 计算球员统计
+    const stats: PlayerSeasonStats[] = allPlayers.map(player => {
+      const playerMatches = matches.filter(m => 
+        m.playerStats.some(ps => ps.playerId === player.id)
       );
       
       let goals = 0;
@@ -57,16 +80,10 @@ export default function StatsPage() {
       let totalRating = 0;
 
       playerMatches.forEach(match => {
-        const playerStat = match.playerStats.find(ps => ps.player.id === player.id);
+        const playerStat = match.playerStats.find(ps => ps.playerId === player.id);
         if (playerStat) {
           goals += playerStat.goals;
           assists += playerStat.assists;
-          yellowCards += playerStat.yellowCards;
-          redCards += playerStat.redCards;
-          minutesPlayed += playerStat.minutesPlayed;
-          if (playerStat.rating) {
-            totalRating += playerStat.rating;
-          }
         }
       });
 
@@ -74,18 +91,111 @@ export default function StatsPage() {
         playerId: player.id,
         playerName: player.name,
         playerNumber: player.number,
-        positions: player.positions,
+        position: player.position,
         matchesPlayed: playerMatches.length,
         goals,
         assists,
         yellowCards,
         redCards,
-        avgRating: playerMatches.length > 0 ? Math.round((totalRating / playerMatches.length) * 10) / 10 : 0,
+        avgRating: 0,
         minutesPlayed,
       };
     });
 
     setPlayerStats(stats);
+  };
+
+  const handleAddMatch = () => {
+    if (!newMatch.opponent.trim() || !newMatch.date) {
+      alert('请填写完整的比赛信息');
+      return;
+    }
+
+    try {
+      const teamId = getChengduDadieTeamId();
+      
+      // 构建 playerStats 数组
+      const matchPlayerStats = Object.entries(newMatch.playerStats)
+        .filter(([_, stats]) => stats.isPlaying)
+        .map(([playerId, stats]) => {
+          const player = players.find(p => p.id === playerId);
+          return {
+            playerId: playerId,
+            playerName: player!.name,
+            playerNumber: player!.number,
+            playerPosition: player!.position,
+            isPlaying: true,
+            goals: stats.goals,
+            assists: stats.assists,
+          };
+        });
+
+      const match: Match = {
+        id: generateId(),
+        teamId,
+        opponent: newMatch.opponent.trim(),
+        date: newMatch.date,
+        location: newMatch.location || '未知',
+        matchType: newMatch.matchType,
+        matchNature: newMatch.matchNature,
+        score: {
+          home: newMatch.scoreHome,
+          away: newMatch.scoreAway,
+        },
+        status: 'completed',
+        playerStats: matchPlayerStats,
+        createdAt: Date.now(),
+      };
+
+      storage.addMatch(match);
+      calculateStats();
+      setIsAddMatchDialogOpen(false);
+      resetMatchForm();
+    } catch (error) {
+      console.error('添加比赛失败:', error);
+      alert('添加比赛失败: ' + (error as Error).message);
+    }
+  };
+
+  const resetMatchForm = () => {
+    setNewMatch({
+      opponent: '',
+      date: '',
+      location: '',
+      matchType: 'home',
+      matchNature: 'friendly',
+      scoreHome: 0,
+      scoreAway: 0,
+      playerStats: {},
+    });
+  };
+
+  const handlePlayerToggle = (playerId: string) => {
+    setNewMatch(prev => ({
+      ...prev,
+      playerStats: {
+        ...prev.playerStats,
+        [playerId]: {
+          ...prev.playerStats[playerId],
+          isPlaying: !prev.playerStats[playerId]?.isPlaying || false,
+          goals: prev.playerStats[playerId]?.goals || 0,
+          assists: prev.playerStats[playerId]?.assists || 0,
+        }
+      }
+    }));
+  };
+
+  const handlePlayerStatChange = (playerId: string, stat: 'goals' | 'assists', value: number) => {
+    setNewMatch(prev => ({
+      ...prev,
+      playerStats: {
+        ...prev.playerStats,
+        [playerId]: {
+          ...prev.playerStats[playerId],
+          [stat]: Math.max(0, value),
+        }
+      }
+    }));
   };
 
   const topScorers = [...playerStats].sort((a, b) => b.goals - a.goals).slice(0, 5);
@@ -96,13 +206,181 @@ export default function StatsPage() {
     <div className="min-h-screen bg-gradient-to-br from-red-50 to-slate-100 dark:from-red-950/20 dark:to-slate-900 pb-20 md:pb-0 pt-16 md:pt-16">
       <div className="container mx-auto px-4 py-6">
         {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-50 mb-2">
-            📈 数据统计
-          </h1>
-          <p className="text-sm text-slate-600 dark:text-slate-400">
-            成都老爹队数据分析
-          </p>
+        <div className="mb-6 flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-50 mb-2">
+              数据统计
+            </h1>
+            <p className="text-sm text-slate-600 dark:text-slate-400">
+              成都老爹队数据分析
+            </p>
+          </div>
+          <Dialog open={isAddMatchDialogOpen} onOpenChange={setIsAddMatchDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-red-700 hover:bg-red-800 text-white">
+                <Plus className="w-4 h-4 mr-2" />
+                录入比赛
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>录入比赛</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="match-opponent">对手 *</Label>
+                    <Input
+                      id="match-opponent"
+                      value={newMatch.opponent}
+                      onChange={(e) => setNewMatch({ ...newMatch, opponent: e.target.value })}
+                      placeholder="请输入对手名称"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="match-date">日期 *</Label>
+                    <Input
+                      id="match-date"
+                      type="date"
+                      value={newMatch.date}
+                      onChange={(e) => setNewMatch({ ...newMatch, date: e.target.value })}
+                    />
+                  </div>
+                </div>
+                
+                <div>
+                  <Label htmlFor="match-location">地点</Label>
+                  <Input
+                    id="match-location"
+                    value={newMatch.location}
+                    onChange={(e) => setNewMatch({ ...newMatch, location: e.target.value })}
+                    placeholder="请输入比赛地点"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="match-type">类型</Label>
+                    <Select
+                      value={newMatch.matchType}
+                      onValueChange={(value: 'home' | 'away') => setNewMatch({ ...newMatch, matchType: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="home">主场</SelectItem>
+                        <SelectItem value="away">客场</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="match-nature">性质</Label>
+                    <Select
+                      value={newMatch.matchNature}
+                      onValueChange={(value: 'friendly' | 'internal' | 'cup' | 'league') => setNewMatch({ ...newMatch, matchNature: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="friendly">友谊赛</SelectItem>
+                        <SelectItem value="internal">队内赛</SelectItem>
+                        <SelectItem value="cup">杯赛</SelectItem>
+                        <SelectItem value="league">联赛</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="score-home">我方进球 *</Label>
+                    <Input
+                      id="score-home"
+                      type="number"
+                      min="0"
+                      value={newMatch.scoreHome}
+                      onChange={(e) => setNewMatch({ ...newMatch, scoreHome: parseInt(e.target.value) || 0 })}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="score-away">对方进球 *</Label>
+                    <Input
+                      id="score-away"
+                      type="number"
+                      min="0"
+                      value={newMatch.scoreAway}
+                      onChange={(e) => setNewMatch({ ...newMatch, scoreAway: parseInt(e.target.value) || 0 })}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <Label className="text-base font-semibold">上场球员及数据</Label>
+                  <div className="mt-2 space-y-2 max-h-60 overflow-y-auto border rounded-lg p-2">
+                    {players.length === 0 ? (
+                      <p className="text-sm text-slate-500 text-center py-4">暂无球员，请先添加球员</p>
+                    ) : (
+                      players
+                        .sort((a, b) => a.number - b.number)
+                        .map((player) => (
+                          <div key={player.id} className="flex items-center gap-2 p-2 hover:bg-slate-50 dark:hover:bg-slate-800 rounded">
+                            <input
+                              type="checkbox"
+                              checked={newMatch.playerStats[player.id]?.isPlaying || false}
+                              onChange={() => handlePlayerToggle(player.id)}
+                              className="w-4 h-4"
+                            />
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium">#{player.number}</span>
+                                <span>{player.name}</span>
+                                {player.position && (
+                                  <span className="text-xs text-slate-500">
+                                    {POSITION_LABELS[player.position]}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            {newMatch.playerStats[player.id]?.isPlaying && (
+                              <>
+                                <div className="flex items-center gap-1">
+                                  <Label htmlFor={`goals-${player.id}`} className="text-xs">进球</Label>
+                                  <Input
+                                    id={`goals-${player.id}`}
+                                    type="number"
+                                    min="0"
+                                    value={newMatch.playerStats[player.id]?.goals || 0}
+                                    onChange={(e) => handlePlayerStatChange(player.id, 'goals', parseInt(e.target.value) || 0)}
+                                    className="w-16 h-8"
+                                  />
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <Label htmlFor={`assists-${player.id}`} className="text-xs">助攻</Label>
+                                  <Input
+                                    id={`assists-${player.id}`}
+                                    type="number"
+                                    min="0"
+                                    value={newMatch.playerStats[player.id]?.assists || 0}
+                                    onChange={(e) => handlePlayerStatChange(player.id, 'assists', parseInt(e.target.value) || 0)}
+                                    className="w-16 h-8"
+                                  />
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        ))
+                    )}
+                  </div>
+                </div>
+
+                <Button onClick={handleAddMatch} className="w-full bg-red-700 hover:bg-red-800">
+                  保存比赛
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
 
         {/* Team Stats */}
@@ -200,70 +478,11 @@ export default function StatsPage() {
                 />
               </TabsContent>
             </Tabs>
-
-            {/* All Players Stats */}
-            {playerStats.length > 0 && (
-              <Card className="mt-6">
-                <CardHeader>
-                  <CardTitle>全部球员数据</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {playerStats.map((player, index) => {
-                      const positionLabels = player.positions
-                        .filter(p => p !== null)
-                        .map(p => POSITION_LABELS[p])
-                        .join(' / ');
-                      
-                      return (
-                        <div key={player.playerId} className="flex items-center justify-between p-3 rounded-lg border bg-background">
-                          <div className="flex items-center gap-3">
-                            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 font-bold text-sm">
-                              {index + 1}
-                            </div>
-                            <div>
-                              <div className="font-semibold">{player.playerName}</div>
-                              <div className="text-xs text-muted-foreground">
-                                #{player.playerNumber} · {positionLabels}
-                              </div>
-                            </div>
-                          </div>
-                          <div className="grid grid-cols-4 gap-4 text-center text-sm">
-                            <div>
-                              <div className="font-bold">{player.matchesPlayed}</div>
-                              <div className="text-xs text-muted-foreground">场次</div>
-                            </div>
-                            <div>
-                              <div className="font-bold">{player.goals}</div>
-                              <div className="text-xs text-muted-foreground">进球</div>
-                            </div>
-                            <div>
-                              <div className="font-bold">{player.assists}</div>
-                              <div className="text-xs text-muted-foreground">助攻</div>
-                            </div>
-                            <div>
-                              <div className="font-bold">{player.avgRating}</div>
-                              <div className="text-xs text-muted-foreground">评分</div>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
           </>
         ) : (
-          <Card className="border-dashed">
-            <CardContent className="flex flex-col items-center justify-center py-12">
-              <BarChart3 className="h-16 w-16 text-slate-300 dark:text-slate-600 mb-4" />
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-50 mb-2">
-                暂无数据
-              </h3>
-              <p className="text-sm text-slate-600 dark:text-slate-400 text-center max-w-md">
-                请先添加球员和比赛记录
-              </p>
+          <Card>
+            <CardContent className="flex items-center justify-center py-12">
+              <p className="text-slate-500">加载中...</p>
             </CardContent>
           </Card>
         )}
@@ -272,67 +491,75 @@ export default function StatsPage() {
   );
 }
 
-function StatCard({ title, value, icon }: any) {
+function StatCard({ title, value, icon }: { title: string; value: string | number; icon: React.ReactNode }) {
   return (
-    <div className="p-4 rounded-lg border bg-background">
-      <div className="flex items-center gap-2 mb-2">
-        <div className="text-muted-foreground">{icon}</div>
-        <span className="text-sm text-muted-foreground">{title}</span>
+    <div className="p-4 rounded-lg bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900">
+      <div className="flex items-center gap-2 mb-2 text-slate-600 dark:text-slate-400">
+        {icon}
+        <span className="text-xs font-medium">{title}</span>
       </div>
-      <div className="text-2xl font-bold text-red-600 dark:text-red-400">
-        {value}
-      </div>
+      <div className="text-2xl font-bold text-slate-900 dark:text-slate-50">{value}</div>
     </div>
   );
 }
 
-function RankingCard({ title, players, statKey, statLabel }: any) {
-  if (players.length === 0) {
-    return (
-      <Card>
-        <CardContent className="flex flex-col items-center justify-center py-12">
-          <p className="text-sm text-muted-foreground">暂无数据</p>
-        </CardContent>
-      </Card>
-    );
-  }
-
+function RankingCard({ 
+  title, 
+  players, 
+  statKey, 
+  statLabel 
+}: { 
+  title: string; 
+  players: PlayerSeasonStats[]; 
+  statKey: keyof PlayerSeasonStats; 
+  statLabel: string; 
+}) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{title}</CardTitle>
+        <CardTitle className="flex items-center gap-2">
+          <Trophy className="h-5 w-5 text-red-600 dark:text-red-400" />
+          {title}
+        </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="space-y-3">
-          {players.map((player: PlayerSeasonStats, index: number) => {
-            const positionLabels = player.positions
-              .filter(p => p !== null)
-              .map(p => POSITION_LABELS[p])
-              .join(' / ');
-            
-            return (
-              <div key={player.playerId} className="flex items-center justify-between p-4 rounded-lg border bg-background hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-red-100 to-red-200 dark:from-red-900/30 dark:to-red-900/50 font-bold text-lg text-red-600 dark:text-red-400">
+        {players.length === 0 ? (
+          <p className="text-center text-slate-500 py-4">暂无数据</p>
+        ) : (
+          <div className="space-y-3">
+            {players.map((player, index) => (
+              <div
+                key={player.playerId}
+                className="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${
+                    index === 0 ? 'bg-yellow-400 text-yellow-900' :
+                    index === 1 ? 'bg-slate-300 text-slate-900' :
+                    index === 2 ? 'bg-amber-600 text-amber-100' :
+                    'bg-slate-200 text-slate-700'
+                  }`}>
                     {index + 1}
                   </div>
                   <div>
-                    <div className="font-semibold text-base">{player.playerName}</div>
-                    <div className="text-xs text-muted-foreground">
-                      #{player.playerNumber} · {positionLabels} · {player.matchesPlayed}场比赛
+                    <div className="font-medium flex items-center gap-2">
+                      #{player.playerNumber} {player.playerName}
+                    </div>
+                    <div className="text-xs text-slate-500">
+                      出场 {player.matchesPlayed} 场
                     </div>
                   </div>
                 </div>
                 <div className="text-right">
                   <div className="text-2xl font-bold text-red-600 dark:text-red-400">
-                    {player[statKey as keyof PlayerSeasonStats] as number}
+                    {player[statKey]}
                   </div>
-                  <div className="text-xs text-muted-foreground">{statLabel}</div>
+                  <div className="text-xs text-slate-500">{statLabel}</div>
                 </div>
               </div>
-            );
-          })}
-        </div>
+            ))}
+          </div>
+        )}
       </CardContent>
     </Card>
   );
