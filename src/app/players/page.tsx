@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, UserPlus, Trash2, Shield, Edit2, Camera, User } from 'lucide-react';
+import { Plus, UserPlus, Trash2, Shield, Edit2, Camera, User, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -15,6 +15,7 @@ import { Player, PlayerPosition, POSITION_LABELS } from '@/types';
 export default function PlayersPage() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isManageDialogOpen, setIsManageDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingPlayerId, setEditingPlayerId] = useState<string | null>(null);
   const [newPlayer, setNewPlayer] = useState({
@@ -236,11 +237,11 @@ export default function PlayersPage() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 py-8">
-        {/* 添加球员按钮 */}
-        <div className="mb-8">
+        {/* 添加球员和管理球员按钮 */}
+        <div className="mb-8 flex gap-3">
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
-              <Button className="bg-red-700 hover:bg-red-800 text-white w-full md:w-auto">
+              <Button className="bg-red-700 hover:bg-red-800 text-white flex-1 md:flex-none">
                 <Plus className="w-5 h-5 mr-2" />
                 添加球员
               </Button>
@@ -353,6 +354,80 @@ export default function PlayersPage() {
               </div>
             </DialogContent>
           </Dialog>
+
+          {/* 管理球员按钮 */}
+          <Dialog open={isManageDialogOpen} onOpenChange={setIsManageDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="flex-1 md:flex-none">
+                <Settings className="w-5 h-5 mr-2" />
+                管理球员
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>管理球员</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-2">
+                {sortedPlayers.length === 0 ? (
+                  <p className="text-center text-slate-500 py-8">暂无球员</p>
+                ) : (
+                  sortedPlayers.map((player) => (
+                    <div
+                      key={player.id}
+                      className="flex items-center justify-between p-3 border rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800"
+                    >
+                      <div className="flex items-center gap-3">
+                        {player.photo ? (
+                          <img
+                            src={player.photo}
+                            alt={player.name}
+                            className="w-12 h-12 object-cover rounded"
+                          />
+                        ) : (
+                          <div className="w-12 h-12 bg-slate-200 dark:bg-slate-700 rounded flex items-center justify-center">
+                            <User className="w-6 h-6 text-slate-400" />
+                          </div>
+                        )}
+                        <div>
+                          <div className="font-medium flex items-center gap-2">
+                            #{player.number} {player.name}
+                          </div>
+                          <div className="text-xs text-slate-500">
+                            {POSITION_LABELS[player.position]} {player.isCaptain && '(队长)'}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setIsManageDialogOpen(false);
+                            handleEditPlayer(player.id);
+                          }}
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/20"
+                          onClick={() => {
+                            if (confirm(`确定要删除 ${player.name} 吗？`)) {
+                              storage.deletePlayer(player.id);
+                              loadPlayers();
+                            }
+                          }}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
 
         {/* 球员列表 */}
@@ -394,37 +469,17 @@ export default function PlayersPage() {
                     )}
                   </div>
 
-                  <CardContent className="p-4">
-                    {/* 球员号码 - 放大显示 */}
-                    <div className="text-4xl font-bold text-red-700 dark:text-red-400 mb-1">
-                      #{player.number}
-                    </div>
-                    
-                    {/* 球员姓名 - 放大显示 */}
-                    <div className="text-3xl font-bold mb-1">
-                      {player.name}
-                    </div>
-
-                    {/* 操作按钮 */}
-                    <div className="flex gap-2 mt-4">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="flex-1"
-                        onClick={() => handleEditPlayer(player.id)}
-                      >
-                        <Edit2 className="w-4 h-4 mr-1" />
-                        编辑
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="flex-1 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/20"
-                        onClick={() => handleDeletePlayer(player.id)}
-                      >
-                        <Trash2 className="w-4 h-4 mr-1" />
-                        删除
-                      </Button>
+                  <CardContent className="p-3">
+                    {/* 姓名和号码在一排显示 */}
+                    <div className="flex justify-between items-center">
+                      {/* 球员姓名 - 靠左 */}
+                      <div className="text-2xl font-bold">
+                        {player.name}
+                      </div>
+                      {/* 球员号码 - 靠右，去除"#"号 */}
+                      <div className="text-2xl font-bold text-red-700 dark:text-red-400">
+                        {player.number}
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
