@@ -426,12 +426,29 @@ export default function PlayersPage() {
                   </div>
                   
                   <CardContent className="p-4 bg-white">
-                    <div className="text-center">
-                      <p className="font-bold text-lg text-gray-900">{player.number}</p>
-                      <h3 className="font-semibold text-xl text-gray-900 mt-1">{player.name}</h3>
+                    <div className="text-center mb-3">
+                      <p className="font-bold text-lg text-gray-900">#{player.number}</p>
+                      <h3 className="font-semibold text-lg text-gray-900 mt-1">{player.name}</h3>
                     </div>
                     
-                    <div className="mt-3 flex gap-2">
+                    <div className="space-y-2 text-sm text-gray-600 mb-4">
+                      <div className="flex justify-between">
+                        <span>位置:</span>
+                        <span className="font-medium">{POSITION_LABELS[player.position]}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>年龄:</span>
+                        <span className="font-medium">{age}岁</span>
+                      </div>
+                      {player.height && player.weight && (
+                        <div className="flex justify-between">
+                          <span>身高/体重:</span>
+                          <span className="font-medium">{player.height}cm / {player.weight}kg</span>
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="flex gap-2">
                       <Button
                         variant="ghost"
                         size="sm"
