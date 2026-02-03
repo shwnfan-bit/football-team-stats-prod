@@ -628,6 +628,7 @@ export default function MatchesPage() {
                         handleEditAddVideo();
                       }
                     }}
+                    className="flex-1 min-w-0"
                   />
                   <Button
                     type="button"

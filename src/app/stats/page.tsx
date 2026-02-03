@@ -439,6 +439,7 @@ export default function StatsPage() {
                             handleAddVideo();
                           }
                         }}
+                        className="flex-1 min-w-0"
                       />
                       <Button
                         type="button"
