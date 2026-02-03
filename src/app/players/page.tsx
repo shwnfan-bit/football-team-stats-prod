@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, UserPlus, Trash2, Shield, Edit2, Camera, User, Settings } from 'lucide-react';
+import { Plus, UserPlus, Trash2, Shield, Edit2, Camera, User, Settings, Database, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -16,6 +16,7 @@ export default function PlayersPage() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isManageDialogOpen, setIsManageDialogOpen] = useState(false);
+  const [isStorageManageDialogOpen, setIsStorageManageDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingPlayerId, setEditingPlayerId] = useState<string | null>(null);
   const [newPlayer, setNewPlayer] = useState({
@@ -218,6 +219,96 @@ export default function PlayersPage() {
       isCaptain: false,
       photo: '',
     });
+  };
+
+  // 数据管理功能
+  const getStorageInfo = () => {
+    if (typeof window === 'undefined') return null;
+
+    const info = {
+      players: {
+        count: storage.getPlayers().length,
+        size: new Blob([localStorage.getItem('football_players') || '']).size,
+      },
+      matches: {
+        count: storage.getMatches().length,
+        size: new Blob([localStorage.getItem('football_matches') || '']).size,
+      },
+      teams: {
+        count: storage.getTeams().length,
+        size: new Blob([localStorage.getItem('football_teams') || '']).size,
+      },
+      seasons: {
+        count: storage.getSeasons().length,
+        size: new Blob([localStorage.getItem('football_seasons') || '']).size,
+      },
+    };
+
+    const totalSize = Object.values(info).reduce((sum, item) => sum + item.size, 0);
+    return { ...info, totalSize };
+  };
+
+  const handleExportData = () => {
+    try {
+      const data = {
+        players: storage.getPlayers(),
+        matches: storage.getMatches(),
+        teams: storage.getTeams(),
+        seasons: storage.getSeasons(),
+        exportTime: new Date().toISOString(),
+      };
+
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `football-data-backup-${new Date().toISOString().split('T')[0]}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      alert('数据导出成功！');
+    } catch (error) {
+      console.error('导出数据失败:', error);
+      alert('导出数据失败: ' + (error as Error).message);
+    }
+  };
+
+  const handleClearAllData = () => {
+    if (confirm('确定要清理所有数据吗？此操作不可恢复！\n\n建议先导出数据备份。')) {
+      try {
+        localStorage.clear();
+        alert('所有数据已清理！');
+        // 重新初始化
+        initializeChengduDadieTeam();
+        loadPlayers();
+        setIsStorageManageDialogOpen(false);
+      } catch (error) {
+        console.error('清理数据失败:', error);
+        alert('清理数据失败: ' + (error as Error).message);
+      }
+    }
+  };
+
+  const handleClearOldMatches = () => {
+    const teamId = getChengduDadieTeamId();
+    const matches = storage.getMatchesByTeam(teamId);
+    if (matches.length === 0) {
+      alert('没有比赛记录可以清理');
+      return;
+    }
+
+    if (confirm(`确定要删除所有 ${matches.length} 场比赛记录吗？此操作不可恢复！`)) {
+      try {
+        matches.forEach(match => {
+          storage.deleteMatch(match.id);
+        });
+        alert('比赛记录已清理！');
+        loadPlayers();
+        setIsStorageManageDialogOpen(false);
+      } catch (error) {
+        console.error('清理比赛记录失败:', error);
+        alert('清理比赛记录失败: ' + (error as Error).message);
+      }
+    }
   };
 
   // 按照号码排序球员
@@ -425,6 +516,91 @@ export default function PlayersPage() {
                     </div>
                   ))
                 )}
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* 数据管理按钮 */}
+          <Dialog open={isStorageManageDialogOpen} onOpenChange={setIsStorageManageDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="flex-1 md:flex-none">
+                <Database className="w-5 h-5 mr-2" />
+                数据管理
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-lg">
+              <DialogHeader>
+                <DialogTitle>数据管理</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                {/* 存储使用情况 */}
+                <div className="bg-slate-50 dark:bg-slate-900 rounded-lg p-4 space-y-2">
+                  <h3 className="font-semibold text-sm mb-3">存储使用情况</h3>
+                  {(() => {
+                    const storageInfo = getStorageInfo();
+                    if (!storageInfo) return null;
+                    const formatSize = (bytes: number) => {
+                      if (bytes < 1024) return bytes + ' B';
+                      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + ' KB';
+                      return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+                    };
+                    return (
+                      <>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-slate-600 dark:text-slate-400">球员数据：</span>
+                          <span className="font-medium">{storageInfo.players.count} 个 ({formatSize(storageInfo.players.size)})</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-slate-600 dark:text-slate-400">比赛记录：</span>
+                          <span className="font-medium">{storageInfo.matches.count} 场 ({formatSize(storageInfo.matches.size)})</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-slate-600 dark:text-slate-400">球队信息：</span>
+                          <span className="font-medium">{storageInfo.teams.count} 个 ({formatSize(storageInfo.teams.size)})</span>
+                        </div>
+                        <div className="flex justify-between text-sm border-t pt-2 mt-2">
+                          <span className="font-semibold">总计：</span>
+                          <span className="font-semibold text-red-600 dark:text-red-400">{formatSize(storageInfo.totalSize)}</span>
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+
+                {/* 提示信息 */}
+                <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
+                  <p className="text-sm text-amber-800 dark:text-amber-200">
+                    ⚠️ 浏览器的存储空间有限（通常 5-10MB）。如果存储已满，请清理旧数据或导出备份后清理全部数据。
+                  </p>
+                </div>
+
+                {/* 操作按钮 */}
+                <div className="space-y-2">
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start"
+                    onClick={handleExportData}
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    导出数据备份
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start text-orange-600 hover:text-orange-700 hover:bg-orange-50 dark:hover:bg-orange-950/20"
+                    onClick={handleClearOldMatches}
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    清理所有比赛记录
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/20"
+                    onClick={handleClearAllData}
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    清理全部数据
+                  </Button>
+                </div>
               </div>
             </DialogContent>
           </Dialog>
