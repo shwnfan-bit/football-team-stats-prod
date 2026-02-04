@@ -33,9 +33,11 @@ export default function MatchesPage() {
   });
 
   useEffect(() => {
-    initializeChengduDadieTeam();
-    loadMatches();
-    loadPlayers();
+    (async () => {
+      await initializeChengduDadieTeam();
+      await loadMatches();
+      await loadPlayers();
+    })();
   }, []);
 
   const loadMatches = async () => {

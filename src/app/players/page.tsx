@@ -31,8 +31,10 @@ export default function PlayersPage() {
   });
 
   useEffect(() => {
-    initializeChengduDadieTeam();
-    loadPlayers();
+    (async () => {
+      await initializeChengduDadieTeam();
+      await loadPlayers();
+    })();
   }, []);
 
   const loadPlayers = () => {
@@ -272,14 +274,14 @@ export default function PlayersPage() {
     }
   };
 
-  const handleClearAllData = () => {
+  const handleClearAllData = async () => {
     if (confirm('确定要清理所有数据吗？此操作不可恢复！\n\n建议先导出数据备份。')) {
       try {
         localStorage.clear();
         alert('所有数据已清理！');
         // 重新初始化
-        initializeChengduDadieTeam();
-        loadPlayers();
+        await initializeChengduDadieTeam();
+        await loadPlayers();
         setIsStorageManageDialogOpen(false);
       } catch (error) {
         console.error('清理数据失败:', error);
@@ -288,9 +290,9 @@ export default function PlayersPage() {
     }
   };
 
-  const handleClearOldMatches = () => {
+  const handleClearOldMatches = async () => {
     const teamId = getChengduDadieTeamId();
-    const matches = storage.getMatchesByTeam(teamId);
+    const matches = await storage.getMatchesByTeam(teamId);
     if (matches.length === 0) {
       alert('没有比赛记录可以清理');
       return;
@@ -298,11 +300,9 @@ export default function PlayersPage() {
 
     if (confirm(`确定要删除所有 ${matches.length} 场比赛记录吗？此操作不可恢复！`)) {
       try {
-        matches.forEach(match => {
-          storage.deleteMatch(match.id);
-        });
+        await Promise.all(matches.map(match => storage.deleteMatch(match.id)));
         alert('比赛记录已清理！');
-        loadPlayers();
+        await loadPlayers();
         setIsStorageManageDialogOpen(false);
       } catch (error) {
         console.error('清理比赛记录失败:', error);

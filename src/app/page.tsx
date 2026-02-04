@@ -14,14 +14,16 @@ export default function HomePage() {
   const [latestMatches, setLatestMatches] = useState<Match[]>([]);
 
   useEffect(() => {
-    initializeChengduDadieTeam();
-    loadData();
+    (async () => {
+      await initializeChengduDadieTeam();
+      await loadData();
+    })();
   }, []);
 
-  const loadData = () => {
+  const loadData = async () => {
     const teamId = getChengduDadieTeamId();
-    const allPlayers = storage.getPlayersByTeam(teamId);
-    const allMatches = storage.getMatchesByTeam(teamId);
+    const allPlayers = await storage.getPlayersByTeam(teamId);
+    const allMatches = await storage.getMatchesByTeam(teamId);
 
     // 计算球队统计
     const wins = allMatches.filter(m => m.score.home > m.score.away).length;
