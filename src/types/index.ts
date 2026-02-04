@@ -31,6 +31,14 @@ export type {
   MatchPlayerStat,
 } from '@/storage/database/shared/schema';
 
+// 数据库的 Match 类型（不包含 playerStats）
+export type DatabaseMatch = typeof import('@/storage/database/shared/schema').matches.$inferSelect;
+
+// 前端扩展的 Match 类型，包含 playerStats
+export interface Match extends DatabaseMatch {
+  playerStats: MatchPlayerStat[];
+}
+
 // 位置标签
 export const POSITION_LABELS: Record<PlayerPosition, string> = {
   goalkeeper: '门将',
@@ -40,16 +48,3 @@ export const POSITION_LABELS: Record<PlayerPosition, string> = {
 };
 
 export type PlayerPosition = 'goalkeeper' | 'defender' | 'midfielder' | 'forward';
-
-// 前端扩展的 Match 类型，包含 playerStats
-export interface Match extends DatabaseMatch {
-  playerStats: MatchPlayerStat[];
-}
-
-// 兼容旧代码：将 DatabaseMatch 转换为前端 Match
-export function toFrontendMatch(dbMatch: DatabaseMatch, playerStats: MatchPlayerStat[]): Match {
-  return {
-    ...dbMatch,
-    playerStats,
-  };
-}

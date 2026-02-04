@@ -39,21 +39,9 @@ export default function PlayersPage() {
 
   const loadPlayers = async () => {
     try {
-      const teamId = await initializeChengduDadieTeam();
+      const teamId = await getChengduDadieTeamId();
       const loadedPlayers = await storage.getPlayersByTeam(teamId);
-      console.log('加载到的球员数据:', loadedPlayers);
-      
-      // 过滤掉旧格式的数据（没有 birthday 字段或没有 position 字段的）
-      const validPlayers = loadedPlayers.filter(p => {
-        if (!p.birthday) return false;
-        // 检查是否有 position 字段（新格式）
-        // 使用类型断言来检查可能存在的字段
-        const playerAny = p as any;
-        return playerAny.position !== undefined || playerAny.positions !== undefined;
-      });
-      console.log('有效的球员数据:', validPlayers);
-      
-      setPlayers(validPlayers);
+      setPlayers(loadedPlayers);
     } catch (error) {
       console.error('加载球员数据失败:', error);
       setPlayers([]);
@@ -93,9 +81,7 @@ export default function PlayersPage() {
     }
 
     try {
-      // 确保球队已初始化
-      const teamId = await initializeChengduDadieTeam();
-      console.log('球队 ID:', teamId);
+      const teamId = await getChengduDadieTeamId();
       
       const playerData = {
         teamId,
@@ -109,16 +95,18 @@ export default function PlayersPage() {
         photo: newPlayer.photo || undefined,
       };
 
-      console.log('创建球员对象:', playerData);
+      // 添加球员到数据库
       const result = await storage.addPlayer(playerData);
-      console.log('球员已保存到存储，返回结果:', result);
       
-      // 重新加载球员列表
-      await loadPlayers();
+      // 立即更新列表（乐观更新，直接使用返回的球员数据）
+      setPlayers(prev => [...prev, result]);
       
+      // 关闭对话框
       setIsAddDialogOpen(false);
       resetForm();
-      console.log('球员添加完成');
+      
+      // 后台异步刷新数据（确保数据是最新的）
+      loadPlayers().catch(console.error);
     } catch (error) {
       console.error('添加球员失败:', error);
       alert('添加球员失败: ' + (error as Error).message);
@@ -185,17 +173,23 @@ export default function PlayersPage() {
         photo: newPlayer.photo || undefined,
       };
 
-      console.log('更新球员对象:', updatedPlayerData);
+      // 更新球员到数据库
       await storage.updatePlayer(editingPlayerId, updatedPlayerData);
-      console.log('球员已更新');
       
-      // 重新加载球员列表
-      await loadPlayers();
+      // 立即更新列表（乐观更新）
+      setPlayers(prev => prev.map(p => 
+        p.id === editingPlayerId 
+          ? { ...p, ...updatedPlayerData } 
+          : p
+      ));
       
+      // 关闭对话框
       setIsEditDialogOpen(false);
       setEditingPlayerId(null);
       resetForm();
-      console.log('球员更新完成');
+      
+      // 后台异步刷新数据
+      loadPlayers().catch(console.error);
     } catch (error) {
       console.error('更新球员失败:', error);
       alert('更新球员失败: ' + (error as Error).message);
@@ -206,7 +200,12 @@ export default function PlayersPage() {
     if (confirm('确定要删除这个球员吗？')) {
       try {
         await storage.deletePlayer(playerId);
-        await loadPlayers();
+        
+        // 立即从列表中移除（乐观更新）
+        setPlayers(prev => prev.filter(p => p.id !== playerId));
+        
+        // 后台异步刷新数据
+        loadPlayers().catch(console.error);
       } catch (error) {
         console.error('删除球员失败:', error);
         alert('删除球员失败: ' + (error as Error).message);

@@ -21,7 +21,7 @@ export default function HomePage() {
   }, []);
 
   const loadData = async () => {
-    const teamId = await initializeChengduDadieTeam();
+    const teamId = await getChengduDadieTeamId();
     const allPlayers = await storage.getPlayersByTeam(teamId);
     const allMatches = await storage.getMatchesByTeam(teamId);
 

@@ -10,7 +10,7 @@ import {
 import type {
   Team,
   Player,
-  Match,
+  DatabaseMatch,
   Season,
   MatchPlayerStat,
   InsertTeam,
@@ -22,6 +22,8 @@ import type {
   InsertSeason,
   UpdateSeason,
 } from '@/storage/database';
+
+import type { Match } from '@/types';
 
 export type {
   Team,
@@ -97,7 +99,7 @@ export const storage = {
   },
 
   // ==================== Matches ====================
-  getMatches: (): Promise<Match[]> => {
+  getMatches: (): Promise<DatabaseMatch[]> => {
     return matchesApi.getAll();
   },
 

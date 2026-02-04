@@ -41,13 +41,13 @@ export default function StatsPage() {
   }, []);
 
   const loadPlayers = async () => {
-    const teamId = await initializeChengduDadieTeam();
+    const teamId = await getChengduDadieTeamId();
     const loadedPlayers = await storage.getPlayersByTeam(teamId);
     setPlayers(loadedPlayers);
   };
 
   const calculateStats = async () => {
-    const teamId = await initializeChengduDadieTeam();
+    const teamId = await getChengduDadieTeamId();
     const matches = await storage.getMatchesByTeam(teamId);
     const allPlayers = await storage.getPlayersByTeam(teamId);
     
@@ -155,9 +155,13 @@ export default function StatsPage() {
         await storage.addMatchPlayerStat(createdMatch.id, stat);
       }
 
-      await calculateStats();
+      // 立即关闭对话框
       setIsAddMatchDialogOpen(false);
       resetMatchForm();
+      
+      // 后台异步刷新数据
+      calculateStats().catch(console.error);
+      loadPlayers().catch(console.error);
     } catch (error) {
       console.error('添加比赛失败:', error);
       alert('添加比赛失败: ' + (error as Error).message);
