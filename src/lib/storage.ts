@@ -101,8 +101,16 @@ export const storage = {
     return matchesApi.getAll();
   },
 
-  getMatchesByTeam: (teamId: string): Promise<Match[]> => {
-    return matchesApi.getByTeam(teamId);
+  getMatchesByTeam: async (teamId: string): Promise<Match[]> => {
+    const matches = await matchesApi.getByTeam(teamId);
+    // 为每场比赛加载球员统计数据
+    const matchesWithStats = await Promise.all(
+      matches.map(async (match) => {
+        const stats = await matchStatsApi.getByMatch(match.id);
+        return { ...match, playerStats: stats };
+      })
+    );
+    return matchesWithStats;
   },
 
   setMatches: async (matches: Match[]): Promise<void> => {
@@ -144,6 +152,10 @@ export const storage = {
     stat: Omit<InsertMatchPlayerStat, 'matchId'>
   ): Promise<MatchPlayerStat> => {
     return matchStatsApi.create(matchId, stat);
+  },
+
+  deleteMatchPlayerStats: (matchId: string): Promise<{ success: boolean }> => {
+    return matchStatsApi.deleteByMatch(matchId);
   },
 
   updateMatchPlayerStat: async (

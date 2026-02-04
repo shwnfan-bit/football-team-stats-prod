@@ -97,6 +97,10 @@ export const matchStatsApi = {
       method: 'POST',
       body: JSON.stringify(data),
     }),
+  deleteByMatch: (matchId: string) =>
+    request<{ success: boolean }>(`/match-stats/${matchId}`, {
+      method: 'DELETE',
+    }),
 };
 
 // ============ Seasons API ============

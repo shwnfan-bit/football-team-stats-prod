@@ -1,5 +1,37 @@
 // 足球队数据统计应用类型定义
+// 注意：此文件中的类型已迁移至数据库 schema (src/storage/database/shared/schema.ts)
+// 为了向后兼容，此处重新导出数据库类型
 
+export type {
+  Team,
+  Player,
+  Match as DatabaseMatch,
+  Season,
+  MatchPlayerStat,
+  InsertTeam,
+  UpdateTeam,
+  InsertPlayer,
+  UpdatePlayer,
+  InsertMatch,
+  UpdateMatch,
+  InsertSeason,
+  UpdateSeason,
+} from '@/storage/database';
+
+export type {
+  InsertMatchPlayerStat,
+  UpdateMatchPlayerStat,
+} from '@/storage/database/shared/schema';
+
+// 为了向后兼容，重新导出一些辅助类型
+export type {
+  Team,
+  Player,
+  Season,
+  MatchPlayerStat,
+} from '@/storage/database/shared/schema';
+
+// 位置标签
 export const POSITION_LABELS: Record<PlayerPosition, string> = {
   goalkeeper: '门将',
   defender: '后卫',
@@ -7,88 +39,17 @@ export const POSITION_LABELS: Record<PlayerPosition, string> = {
   forward: '前锋',
 };
 
-export interface Team {
-  id: string;
-  name: string;
-  logo?: string;
-  color: string;
-  foundedYear: number;
-  coach?: string;
-  createdAt: number;
-}
-
-export interface Player {
-  id: string;
-  teamId: string;
-  name: string;
-  number: number;
-  position: PlayerPosition; // 单个位置
-  birthday: string; // 生日 YYYY-MM-DD
-  height?: number;
-  weight?: number;
-  isCaptain?: boolean;
-  photo?: string;
-  createdAt: number;
-}
-
 export type PlayerPosition = 'goalkeeper' | 'defender' | 'midfielder' | 'forward';
 
-export interface Match {
-  id: string;
-  teamId: string;
-  opponent: string;
-  date: string;
-  matchType: 'home' | 'away'; // 主场/客场
-  matchNature: 'friendly' | 'internal' | 'cup' | 'league'; // 友谊赛/对内赛/杯赛/联赛
-  location?: string;
-  score: {
-    home: number;
-    away: number;
+// 前端扩展的 Match 类型，包含 playerStats
+export interface Match extends DatabaseMatch {
+  playerStats: MatchPlayerStat[];
+}
+
+// 兼容旧代码：将 DatabaseMatch 转换为前端 Match
+export function toFrontendMatch(dbMatch: DatabaseMatch, playerStats: MatchPlayerStat[]): Match {
+  return {
+    ...dbMatch,
+    playerStats,
   };
-  status?: 'completed' | 'pending';
-  playerStats: PlayerMatchStats[];
-  videos?: string[]; // 录像链接数组
-  createdAt: number;
-}
-
-export interface PlayerMatchStats {
-  playerId: string;
-  playerName: string;
-  playerNumber: number;
-  playerPosition: PlayerPosition;
-  isPlaying: boolean;
-  goals: number;
-  assists: number;
-}
-
-export interface Season {
-  id: string;
-  teamId: string;
-  name: string;
-  startDate: string;
-  endDate: string;
-  matches: Match[];
-}
-
-export interface PlayerSeasonStats {
-  playerId: string;
-  playerName: string;
-  playerNumber: number;
-  position: PlayerPosition;
-  matchesPlayed: number;
-  goals: number;
-  assists: number;
-  yellowCards: number;
-  redCards: number;
-  avgRating: number;
-  minutesPlayed: number;
-}
-
-export interface TeamSeasonStats {
-  totalMatches: number;
-  wins: number;
-  draws: number;
-  losses: number;
-  goalsFor: number;
-  goalsAgainst: number;
 }

@@ -40,3 +40,21 @@ export async function POST(
     );
   }
 }
+
+// DELETE /api/match-stats/[matchId] - 删除比赛的所有球员统计
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ matchId: string }> }
+) {
+  try {
+    const { matchId } = await params;
+    await matchManager.deleteMatchPlayerStatsByMatch(matchId);
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Error deleting match stats:", error);
+    return NextResponse.json(
+      { error: "Failed to delete match stats" },
+      { status: 500 }
+    );
+  }
+}

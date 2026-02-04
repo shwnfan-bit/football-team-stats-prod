@@ -94,8 +94,7 @@ export default function PlayersPage() {
 
     try {
       const teamId = getChengduDadieTeamId();
-      const player: Player = {
-        id: generateId(),
+      const playerData = {
         teamId,
         name: newPlayer.name.trim(),
         number: parseInt(newPlayer.number),
@@ -105,11 +104,10 @@ export default function PlayersPage() {
         weight: newPlayer.weight ? parseInt(newPlayer.weight) : undefined,
         isCaptain: newPlayer.isCaptain,
         photo: newPlayer.photo || undefined,
-        createdAt: Date.now(),
       };
 
-      console.log('创建球员对象:', player);
-      await storage.addPlayer(player);
+      console.log('创建球员对象:', playerData);
+      await storage.addPlayer(playerData);
       console.log('球员已保存到存储');
       
       // 重新加载球员列表
@@ -167,8 +165,7 @@ export default function PlayersPage() {
 
     try {
       const teamId = getChengduDadieTeamId();
-      const updatedPlayer: Player = {
-        id: editingPlayerId,
+      const updatedPlayerData = {
         teamId,
         name: newPlayer.name.trim(),
         number: parseInt(newPlayer.number),
@@ -178,11 +175,10 @@ export default function PlayersPage() {
         weight: newPlayer.weight ? parseInt(newPlayer.weight) : undefined,
         isCaptain: newPlayer.isCaptain,
         photo: newPlayer.photo || undefined,
-        createdAt: Date.now(),
       };
 
-      console.log('更新球员对象:', updatedPlayer);
-      await storage.updatePlayer(editingPlayerId, updatedPlayer);
+      console.log('更新球员对象:', updatedPlayerData);
+      await storage.updatePlayer(editingPlayerId, updatedPlayerData);
       console.log('球员已更新');
       
       // 重新加载球员列表

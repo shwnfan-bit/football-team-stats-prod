@@ -93,9 +93,9 @@ export default function MatchesPage() {
   };
 
   const getMatchResult = (match: Match) => {
-    if (match.score.home > match.score.away) {
+    if (match.scoreHome > match.scoreAway) {
       return { text: '胜', color: 'bg-green-600' };
-    } else if (match.score.home < match.score.away) {
+    } else if (match.scoreHome < match.scoreAway) {
       return { text: '负', color: 'bg-red-600' };
     } else {
       return { text: '平', color: 'bg-yellow-600' };
@@ -195,9 +195,25 @@ export default function MatchesPage() {
     }
 
     try {
+      // 更新比赛基本信息
+      const updatedMatchData = {
+        opponent: editMatch.opponent.trim(),
+        date: editMatch.date,
+        location: editMatch.location || undefined,
+        matchType: editMatch.matchType,
+        matchNature: editMatch.matchNature,
+        scoreHome: editMatch.scoreHome,
+        scoreAway: editMatch.scoreAway,
+        status: 'completed' as const,
+        videos: editMatch.videos,
+      };
+
+      await storage.updateMatch(editingMatchId, updatedMatchData);
+
+      // 删除旧的球员统计，然后添加新的
       const teamId = getChengduDadieTeamId();
       
-      // 构建 playerStats 数组
+      // 构建新的球员统计数据
       const matchPlayerStats = Object.entries(editMatch.playerStats)
         .filter(([_, stats]) => stats.isPlaying)
         .map(([playerId, stats]) => {
@@ -213,25 +229,14 @@ export default function MatchesPage() {
           };
         });
 
-      const updatedMatch: Match = {
-        id: editingMatchId,
-        teamId,
-        opponent: editMatch.opponent.trim(),
-        date: editMatch.date,
-        location: editMatch.location || '未知',
-        matchType: editMatch.matchType,
-        matchNature: editMatch.matchNature,
-        score: {
-          home: editMatch.scoreHome,
-          away: editMatch.scoreAway,
-        },
-        status: 'completed',
-        playerStats: matchPlayerStats,
-        videos: editMatch.videos,
-        createdAt: Date.now(),
-      };
-
-      await storage.updateMatch(editingMatchId, updatedMatch);
+      // 删除旧的球员统计
+      await storage.deleteMatchPlayerStats(editingMatchId);
+      
+      // 添加新的球员统计
+      for (const stat of matchPlayerStats) {
+        await storage.addMatchPlayerStat(editingMatchId, stat);
+      }
+      
       await loadMatches();
       setIsEditDialogOpen(false);
       setEditingMatchId(null);
@@ -289,11 +294,11 @@ export default function MatchesPage() {
                         {/* 比分 */}
                         <div className="flex items-center gap-2">
                           <span className="text-2xl font-bold text-red-700 dark:text-red-400">
-                            {match.score.home}
+                            {match.scoreHome}
                           </span>
                           <span className="text-slate-400">:</span>
                           <span className="text-2xl font-bold">
-                            {match.score.away}
+                            {match.scoreAway}
                           </span>
                         </div>
                       </div>
