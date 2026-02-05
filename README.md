@@ -200,6 +200,96 @@ import { cn } from '@/lib/utils';
 </div>
 ```
 
+---
+
+## 🚀 Vercel 部署
+
+本项目支持一键部署到 Vercel，获得生产环境性能。
+
+### 快速部署（推荐）
+
+**方式 1：使用部署脚本**
+```bash
+./deploy-vercel.sh
+```
+
+**方式 2：使用 Vercel CLI**
+```bash
+# 1. 安装 Vercel CLI
+pnpm add -g vercel
+
+# 2. 登录
+vercel login
+
+# 3. 部署到预览环境
+vercel
+
+# 4. 配置环境变量
+vercel env add DATABASE_URL
+
+# 5. 部署到生产环境
+vercel --prod
+```
+
+**方式 3：通过 Vercel 网站**
+1. 访问 [https://vercel.com](https://vercel.com)
+2. 登录后点击 "Add New" → "Project"
+3. 选择你的 Git 仓库
+4. 配置环境变量 `DATABASE_URL`
+5. 点击 "Deploy"
+
+### 配置环境变量
+
+在 Vercel 中添加以下环境变量：
+
+| 变量名 | 说明 |
+|--------|------|
+| `DATABASE_URL` | PostgreSQL 数据库连接字符串 |
+
+**获取 DATABASE_URL：**
+- 查看项目的 `.env` 文件（不要提交到 Git）
+- 或联系数据库提供商获取
+
+**格式示例：**
+```
+postgresql://username:password@host:port/database
+```
+
+### 部署区域选择
+
+推荐选择香港区域，对中国用户更友好：
+
+- **通过 Vercel 网站**：项目设置 → General → Regions → 选择 `Hong Kong (hkg1)`
+- **通过 CLI**：`vercel regions set hkg1`
+
+### 验证部署
+
+部署完成后，访问你的 Vercel URL：
+
+```
+https://your-project-name.vercel.app
+```
+
+检查清单：
+- [ ] 应用可以正常访问
+- [ ] 所有页面都能正常加载
+- [ ] 数据库连接正常
+- [ ] 管理员登录功能正常
+- [ ] 添加/编辑/删除功能正常
+
+### 详细文档
+
+完整的 Vercel 部署指南请查看：[VERCEL_DEPLOYMENT_GUIDE.md](./VERCEL_DEPLOYMENT_GUIDE.md)
+
+---
+
+## 📚 相关文档
+
+- [Next.js 文档](https://nextjs.org/docs)
+- [shadcn/ui 文档](https://ui.shadcn.com)
+- [Tailwind CSS 文档](https://tailwindcss.com/docs)
+- [Vercel 部署指南](./VERCEL_DEPLOYMENT_GUIDE.md)
+
 **主题变量**
 
 主题变量定义在 `src/app/globals.css` 中，支持亮色/暗色模式：
