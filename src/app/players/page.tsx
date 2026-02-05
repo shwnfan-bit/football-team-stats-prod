@@ -35,7 +35,14 @@ export default function PlayersPage() {
     (async () => {
       const id = await initializeChengduDadieTeam();
       setTeamId(id);
-      await loadPlayers();
+      // 直接使用 id 加载球员，不依赖 teamId 状态
+      try {
+        const loadedPlayers = await storage.getPlayersByTeam(id);
+        setPlayers(loadedPlayers);
+      } catch (error) {
+        console.error('加载球员数据失败:', error);
+        setPlayers([]);
+      }
     })();
   }, []);
 
@@ -47,6 +54,18 @@ export default function PlayersPage() {
     } catch (error) {
       console.error('加载球员数据失败:', error);
       setPlayers([]);
+    }
+  };
+
+  // 手动刷新球员列表
+  const refreshPlayers = async () => {
+    try {
+      const id = teamId || await getChengduDadieTeamId();
+      if (!id) return;
+      const loadedPlayers = await storage.getPlayersByTeam(id);
+      setPlayers(loadedPlayers);
+    } catch (error) {
+      console.error('刷新球员数据失败:', error);
     }
   };
 
@@ -459,6 +478,17 @@ export default function PlayersPage() {
               </div>
             </DialogContent>
           </Dialog>
+
+          {/* 刷新按钮 */}
+          <Button 
+            variant="outline" 
+            className="flex-1 md:flex-none"
+            onClick={refreshPlayers}
+            disabled={!teamId}
+          >
+            <User className="w-5 h-5 mr-2" />
+            刷新
+          </Button>
 
           {/* 管理球员按钮 */}
           <Dialog open={isManageDialogOpen} onOpenChange={setIsManageDialogOpen}>
