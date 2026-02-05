@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Plus, UserPlus, Trash2, Shield, Edit2, Camera, User, Settings, Database, Download } from 'lucide-react';
+import { Plus, UserPlus, Trash2, Shield, Edit2, Camera, User, Settings, Database, Download, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -10,11 +10,13 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { storage, generateId } from '@/lib/storage';
 import { initializeChengduDadieTeam, getChengduDadieTeamId, calculateAge } from '@/lib/team';
+import { cacheManager } from '@/lib/dataCache';
 import { Player, PlayerPosition, POSITION_LABELS } from '@/types';
 
 export default function PlayersPage() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [teamId, setTeamId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isManageDialogOpen, setIsManageDialogOpen] = useState(false);
   const [isStorageManageDialogOpen, setIsStorageManageDialogOpen] = useState(false);
@@ -33,15 +35,29 @@ export default function PlayersPage() {
 
   useEffect(() => {
     (async () => {
-      const id = await initializeChengduDadieTeam();
-      setTeamId(id);
-      // 直接使用 id 加载球员，不依赖 teamId 状态
+      setIsLoading(true);
       try {
+        const id = await initializeChengduDadieTeam();
+        setTeamId(id);
+        
+        // 尝试从缓存加载
+        const cachedPlayers = cacheManager.players.get(id);
+        if (cachedPlayers) {
+          setPlayers(cachedPlayers);
+          setIsLoading(false);
+          return;
+        }
+        
+        // 从服务器加载
         const loadedPlayers = await storage.getPlayersByTeam(id);
         setPlayers(loadedPlayers);
+        // 缓存数据
+        cacheManager.players.set(id, loadedPlayers);
       } catch (error) {
         console.error('加载球员数据失败:', error);
         setPlayers([]);
+      } finally {
+        setIsLoading(false);
       }
     })();
   }, []);
@@ -125,12 +141,14 @@ export default function PlayersPage() {
       // 立即更新列表（乐观更新，直接使用返回的球员数据）
       setPlayers(prev => [...prev, result]);
       
+      // 清除缓存
+      if (teamId) {
+        cacheManager.players.delete(teamId);
+      }
+      
       // 关闭对话框
       setIsAddDialogOpen(false);
       resetForm();
-      
-      // 注释掉后台刷新，避免阻塞UI
-      // loadPlayers().catch(console.error);
     } catch (error) {
       console.error('添加球员失败:', error);
       alert('添加球员失败: ' + (error as Error).message);
@@ -203,13 +221,15 @@ export default function PlayersPage() {
           : p
       ));
       
+      // 清除缓存
+      if (teamId) {
+        cacheManager.players.delete(teamId);
+      }
+      
       // 关闭对话框
       setIsEditDialogOpen(false);
       setEditingPlayerId(null);
       resetForm();
-      
-      // 注释掉后台刷新，避免阻塞UI
-      // loadPlayers().catch(console.error);
     } catch (error) {
       console.error('更新球员失败:', error);
       alert('更新球员失败: ' + (error as Error).message);
@@ -224,8 +244,10 @@ export default function PlayersPage() {
         // 立即从列表中移除（乐观更新）
         setPlayers(prev => prev.filter(p => p.id !== playerId));
         
-        // 注释掉后台刷新，避免阻塞UI
-        // loadPlayers().catch(console.error);
+        // 清除缓存
+        if (teamId) {
+          cacheManager.players.delete(teamId);
+        }
       } catch (error) {
         console.error('删除球员失败:', error);
         alert('删除球员失败: ' + (error as Error).message);
@@ -682,7 +704,16 @@ export default function PlayersPage() {
         </div>
 
         {/* 球员列表 */}
-        {totalPlayers === 0 ? (
+        {isLoading ? (
+          <Card>
+            <CardContent className="flex items-center justify-center py-12">
+              <div className="flex flex-col items-center gap-4">
+                <Loader2 className="w-8 h-8 animate-spin text-red-600 dark:text-red-400" />
+                <p className="text-slate-600 dark:text-slate-400">加载球员数据中...</p>
+              </div>
+            </CardContent>
+          </Card>
+        ) : totalPlayers === 0 ? (
           <Card className="text-center py-12">
             <CardContent>
               <User className="w-16 h-16 mx-auto mb-4 text-slate-400" />

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Calendar, MapPin, Home, Plane, Trophy, Target, Award, ChevronDown, ChevronUp, Edit2, User, Video, X, Plus } from 'lucide-react';
+import { Calendar, MapPin, Home, Plane, Trophy, Target, Award, ChevronDown, ChevronUp, Edit2, User, Video, X, Plus, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { storage } from '@/lib/storage';
 import { initializeChengduDadieTeam, getChengduDadieTeamId } from '@/lib/team';
+import { cacheManager } from '@/lib/dataCache';
 import { Match, Player, PlayerPosition, POSITION_LABELS, MatchPlayerStat } from '@/types';
 
 export default function MatchesPage() {
@@ -21,6 +22,7 @@ export default function MatchesPage() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [editNewVideoUrl, setEditNewVideoUrl] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [editMatch, setEditMatch] = useState({
     opponent: '',
     date: '',
@@ -35,19 +37,36 @@ export default function MatchesPage() {
 
   useEffect(() => {
     (async () => {
-      await initializeChengduDadieTeam();
-      await loadMatches();
-      await loadPlayers();
+      setIsLoading(true);
+      try {
+        await initializeChengduDadieTeam();
+        await loadMatches();
+        await loadPlayers();
+      } catch (error) {
+        console.error('加载数据失败:', error);
+      } finally {
+        setIsLoading(false);
+      }
     })();
   }, []);
 
   const loadMatches = async () => {
     try {
       const teamId = await getChengduDadieTeamId();
+      
+      // 尝试从缓存加载
+      const cachedMatches = cacheManager.matches.get(teamId);
+      if (cachedMatches) {
+        setMatches(cachedMatches);
+        return;
+      }
+      
       const loadedMatches = await storage.getMatchesByTeam(teamId);
       // 按日期降序排列（最新的在前）
       const sortedMatches = loadedMatches.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
       setMatches(sortedMatches);
+      // 缓存数据
+      cacheManager.matches.set(teamId, sortedMatches);
     } catch (error) {
       console.error('加载比赛数据失败:', error);
       setMatches([]);
@@ -57,8 +76,18 @@ export default function MatchesPage() {
   const loadPlayers = async () => {
     try {
       const teamId = await getChengduDadieTeamId();
+      
+      // 尝试从缓存加载
+      const cachedPlayers = cacheManager.players.get(teamId);
+      if (cachedPlayers) {
+        setPlayers(cachedPlayers);
+        return;
+      }
+      
       const loadedPlayers = await storage.getPlayersByTeam(teamId);
       setPlayers(loadedPlayers);
+      // 缓存数据
+      cacheManager.players.set(teamId, loadedPlayers);
     } catch (error) {
       console.error('加载球员数据失败:', error);
       setPlayers([]);
@@ -276,6 +305,12 @@ export default function MatchesPage() {
       setIsEditDialogOpen(false);
       setEditingMatchId(null);
       
+      // 清除缓存
+      const teamId = await getChengduDadieTeamId();
+      if (teamId) {
+        cacheManager.matches.delete(teamId);
+      }
+      
       // 后台刷新以确保数据一致性
       await loadMatches();
     } catch (error) {
@@ -302,7 +337,16 @@ export default function MatchesPage() {
         </div>
 
         {/* 比赛列表 */}
-        {matches.length === 0 ? (
+        {isLoading ? (
+          <Card>
+            <CardContent className="flex items-center justify-center py-12">
+              <div className="flex flex-col items-center gap-4">
+                <Loader2 className="w-8 h-8 animate-spin text-red-600 dark:text-red-400" />
+                <p className="text-slate-600 dark:text-slate-400">加载比赛数据中...</p>
+              </div>
+            </CardContent>
+          </Card>
+        ) : matches.length === 0 ? (
           <Card className="text-center py-12">
             <CardContent>
               <Calendar className="w-16 h-16 mx-auto mb-4 text-slate-400" />
