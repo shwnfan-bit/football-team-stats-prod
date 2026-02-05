@@ -105,14 +105,21 @@ export const storage = {
 
   getMatchesByTeam: async (teamId: string): Promise<Match[]> => {
     const matches = await matchesApi.getByTeam(teamId);
-    // 为每场比赛加载球员统计数据
-    const matchesWithStats = await Promise.all(
-      matches.map(async (match) => {
-        const stats = await matchStatsApi.getByMatch(match.id);
-        return { ...match, playerStats: stats };
-      })
-    );
-    return matchesWithStats;
+
+    if (matches.length === 0) {
+      return [];
+    }
+
+    // 使用批量 API 一次性获取所有比赛的球员统计（减少 API 请求）
+    const matchIds = matches.map((m) => m.id).join(",");
+    const response = await fetch(`/api/match-stats?matchIds=${matchIds}`);
+    const result = await response.json();
+
+    // 将统计数据关联到每场比赛
+    return matches.map((match) => ({
+      ...match,
+      playerStats: result.data[match.id] || [],
+    }));
   },
 
   setMatches: async (matches: Match[]): Promise<void> => {
