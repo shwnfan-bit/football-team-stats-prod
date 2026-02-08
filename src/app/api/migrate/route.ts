@@ -19,7 +19,6 @@ export async function POST(request: NextRequest) {
       for (const team of teams) {
         try {
           await teamManager.createTeam({
-            id: team.id,
             name: team.name,
             logo: team.logo,
             color: team.color,
@@ -41,7 +40,6 @@ export async function POST(request: NextRequest) {
       for (const player of players) {
         try {
           await playerManager.createPlayer({
-            id: player.id,
             teamId: player.teamId,
             name: player.name,
             number: player.number,
@@ -66,8 +64,7 @@ export async function POST(request: NextRequest) {
     if (matches && Array.isArray(matches)) {
       for (const match of matches) {
         try {
-          await matchManager.createMatch({
-            id: match.id,
+          const createdMatch = await matchManager.createMatch({
             teamId: match.teamId,
             opponent: match.opponent,
             date: new Date(match.date),
@@ -86,7 +83,7 @@ export async function POST(request: NextRequest) {
             for (const stat of match.playerStats) {
               try {
                 await matchManager.createMatchPlayerStat({
-                  matchId: match.id,
+                  matchId: createdMatch.id, // 使用数据库生成的 ID
                   playerId: stat.playerId,
                   playerName: stat.playerName,
                   playerNumber: stat.playerNumber,
