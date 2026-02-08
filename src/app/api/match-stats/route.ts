@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
     );
 
     // 将结果按 matchId 分组
-    const groupedStats = {};
+    const groupedStats: Record<string, any[]> = {};
     ids.forEach((id, index) => {
       groupedStats[id.trim()] = allStats[index];
     });
