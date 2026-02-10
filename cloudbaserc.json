@@ -1,0 +1,17 @@
+{
+  "envId": "{{env.TCB_ENV_ID}}",
+  "framework": {
+    "name": "football-team-stats",
+    "plugins": {
+      "next": {
+        "use": "@cloudbase/framework-plugin-next",
+        "inputs": {
+          "buildCommand": "pnpm build",
+          "outputPath": ".next",
+          "path": "/",
+          "runtime": "nodejs18"
+        }
+      }
+    }
+  }
+}
