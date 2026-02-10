@@ -1,5 +1,5 @@
 import { eq, and, SQL } from "drizzle-orm";
-import { getDb } from "coze-coding-dev-sdk";
+import { getDb } from "./shared/db";
 import {
   players,
   insertPlayerSchema,
@@ -15,7 +15,8 @@ export class PlayerManager {
   async createPlayer(data: InsertPlayer): Promise<Player> {
     const db = await getDb();
     const validated = insertPlayerSchema.parse(data);
-    const [player] = await db.insert(players).values(validated).returning();
+    await db.insert(players).values(validated);
+    const [player] = await db.select().from(players).where(eq(players.id, data.id as any));
     return player;
   }
 
@@ -69,11 +70,11 @@ export class PlayerManager {
   async updatePlayer(id: string, data: UpdatePlayer): Promise<Player | null> {
     const db = await getDb();
     const validated = updatePlayerSchema.parse(data);
-    const [player] = await db
+    await db
       .update(players)
       .set({ ...validated, updatedAt: new Date() })
-      .where(eq(players.id, id))
-      .returning();
+      .where(eq(players.id, id));
+    const [player] = await db.select().from(players).where(eq(players.id, id));
     return player || null;
   }
 

@@ -1,5 +1,5 @@
 import { eq, and, SQL } from "drizzle-orm";
-import { getDb } from "coze-coding-dev-sdk";
+import { getDb } from "./shared/db";
 import {
   matches,
   insertMatchSchema,
@@ -22,7 +22,8 @@ export class MatchManager {
   async createMatch(data: InsertMatch): Promise<Match> {
     const db = await getDb();
     const validated = insertMatchSchema.parse(data);
-    const [match] = await db.insert(matches).values(validated).returning();
+    await db.insert(matches).values(validated);
+    const [match] = await db.select().from(matches).where(eq(matches.id, data.id as any));
     return match;
   }
 
@@ -76,11 +77,11 @@ export class MatchManager {
   async updateMatch(id: string, data: UpdateMatch): Promise<Match | null> {
     const db = await getDb();
     const validated = updateMatchSchema.parse(data);
-    const [match] = await db
+    await db
       .update(matches)
       .set({ ...validated, updatedAt: new Date() })
-      .where(eq(matches.id, id))
-      .returning();
+      .where(eq(matches.id, id));
+    const [match] = await db.select().from(matches).where(eq(matches.id, id));
     return match || null;
   }
 
@@ -100,7 +101,8 @@ export class MatchManager {
   async createMatchPlayerStat(data: InsertMatchPlayerStat): Promise<MatchPlayerStat> {
     const db = await getDb();
     const validated = insertMatchPlayerStatSchema.parse(data);
-    const [stat] = await db.insert(matchPlayerStats).values(validated).returning();
+    await db.insert(matchPlayerStats).values(validated);
+    const [stat] = await db.select().from(matchPlayerStats).where(eq(matchPlayerStats.id, data.id as any));
     return stat;
   }
 
@@ -118,11 +120,11 @@ export class MatchManager {
   async updateMatchPlayerStat(id: string, data: UpdateMatchPlayerStat): Promise<MatchPlayerStat | null> {
     const db = await getDb();
     const validated = updateMatchPlayerStatSchema.parse(data);
-    const [stat] = await db
+    await db
       .update(matchPlayerStats)
       .set(validated)
-      .where(eq(matchPlayerStats.id, id))
-      .returning();
+      .where(eq(matchPlayerStats.id, id));
+    const [stat] = await db.select().from(matchPlayerStats).where(eq(matchPlayerStats.id, id));
     return stat || null;
   }
 

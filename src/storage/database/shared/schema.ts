@@ -1,158 +1,117 @@
 import { sql } from "drizzle-orm";
 import {
-  pgTable,
+  mysqlTable,
   text,
   varchar,
   timestamp,
   boolean,
-  integer,
-  jsonb,
-  index,
-} from "drizzle-orm/pg-core";
+  int,
+  json,
+} from "drizzle-orm/mysql-core";
 import { createSchemaFactory } from "drizzle-zod";
 import { z } from "zod";
 
 // ==================== Teams 表 ====================
-export const teams = pgTable(
+export const teams = mysqlTable(
   "teams",
   {
-    id: varchar("id", { length: 36 })
-      .primaryKey()
-      .default(sql`gen_random_uuid()`),
+    id: varchar("id", { length: 36 }).primaryKey(),
     name: varchar("name", { length: 128 }).notNull(),
     logo: text("logo"),
     color: varchar("color", { length: 7 }).notNull().default("#FF0000"),
-    foundedYear: integer("founded_year").notNull().default(2024),
+    foundedYear: int("founded_year").notNull().default(2024),
     coach: varchar("coach", { length: 128 }),
-    createdAt: timestamp("created_at", { withTimezone: true })
+    createdAt: timestamp("created_at")
       .defaultNow()
       .notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }),
-  },
-  (table) => ({
-    nameIdx: index("teams_name_idx").on(table.name),
-  })
+    updatedAt: timestamp("updated_at").onUpdateNow(),
+  }
 );
 
 // ==================== Players 表 ====================
-export const players = pgTable(
+export const players = mysqlTable(
   "players",
   {
-    id: varchar("id", { length: 36 })
-      .primaryKey()
-      .default(sql`gen_random_uuid()`),
+    id: varchar("id", { length: 36 }).primaryKey(),
     teamId: varchar("team_id", { length: 36 })
-      .notNull()
-      .references(() => teams.id, { onDelete: "cascade" }),
+      .notNull(),
     name: varchar("name", { length: 128 }).notNull(),
-    number: integer("number").notNull(),
+    number: int("number").notNull(),
     position: varchar("position", { length: 32 }).notNull(), // goalkeeper, defender, midfielder, forward
-    birthday: timestamp("birthday", { withTimezone: true }).notNull(),
-    height: integer("height"),
-    weight: integer("weight"),
+    birthday: timestamp("birthday").notNull(),
+    height: int("height"),
+    weight: int("weight"),
     isCaptain: boolean("is_captain").default(false).notNull(),
     photo: text("photo"),
-    createdAt: timestamp("created_at", { withTimezone: true })
+    createdAt: timestamp("created_at")
       .defaultNow()
       .notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }),
-  },
-  (table) => ({
-    teamIdIdx: index("players_team_id_idx").on(table.teamId),
-    numberIdx: index("players_number_idx").on(table.number),
-  })
+    updatedAt: timestamp("updated_at").onUpdateNow(),
+  }
 );
 
 // ==================== Matches 表 ====================
-export const matches = pgTable(
+export const matches = mysqlTable(
   "matches",
   {
-    id: varchar("id", { length: 36 })
-      .primaryKey()
-      .default(sql`gen_random_uuid()`),
-    teamId: varchar("team_id", { length: 36 })
-      .notNull()
-      .references(() => teams.id, { onDelete: "cascade" }),
+    id: varchar("id", { length: 36 }).primaryKey(),
+    teamId: varchar("team_id", { length: 36 }).notNull(),
     opponent: varchar("opponent", { length: 128 }).notNull(),
-    date: timestamp("date", { withTimezone: true }).notNull(),
+    date: timestamp("date").notNull(),
     matchType: varchar("match_type", { length: 16 }).notNull(), // home, away
     matchNature: varchar("match_nature", { length: 32 }).notNull(), // friendly, internal, cup, league
     location: varchar("location", { length: 128 }),
-    scoreHome: integer("score_home").notNull().default(0),
-    scoreAway: integer("score_away").notNull().default(0),
+    scoreHome: int("score_home").notNull().default(0),
+    scoreAway: int("score_away").notNull().default(0),
     status: varchar("status", { length: 32 }).notNull().default("completed"), // completed, pending
-    videos: jsonb("videos").$type<string[]>(), // 录像链接数组
-    createdAt: timestamp("created_at", { withTimezone: true })
+    videos: json("videos").$type<string[]>(), // 录像链接数组
+    createdAt: timestamp("created_at")
       .defaultNow()
       .notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }),
-  },
-  (table) => ({
-    teamIdIdx: index("matches_team_id_idx").on(table.teamId),
-    dateIdx: index("matches_date_idx").on(table.date),
-  })
+    updatedAt: timestamp("updated_at").onUpdateNow(),
+  }
 );
 
 // ==================== Match Player Stats 表 ====================
-export const matchPlayerStats = pgTable(
+export const matchPlayerStats = mysqlTable(
   "match_player_stats",
   {
-    id: varchar("id", { length: 36 })
-      .primaryKey()
-      .default(sql`gen_random_uuid()`),
-    matchId: varchar("match_id", { length: 36 })
-      .notNull()
-      .references(() => matches.id, { onDelete: "cascade" }),
-    playerId: varchar("player_id", { length: 36 })
-      .notNull()
-      .references(() => players.id, { onDelete: "cascade" }),
+    id: varchar("id", { length: 36 }).primaryKey(),
+    matchId: varchar("match_id", { length: 36 }).notNull(),
+    playerId: varchar("player_id", { length: 36 }).notNull(),
     playerName: varchar("player_name", { length: 128 }).notNull(),
-    playerNumber: integer("player_number").notNull(),
+    playerNumber: int("player_number").notNull(),
     playerPosition: varchar("player_position", { length: 32 }).notNull(),
     isPlaying: boolean("is_playing").notNull().default(true),
-    goals: integer("goals").notNull().default(0),
-    assists: integer("assists").notNull().default(0),
-    createdAt: timestamp("created_at", { withTimezone: true })
+    goals: int("goals").notNull().default(0),
+    assists: int("assists").notNull().default(0),
+    createdAt: timestamp("created_at")
       .defaultNow()
       .notNull(),
-  },
-  (table) => ({
-    matchIdIdx: index("match_player_stats_match_id_idx").on(table.matchId),
-    playerIdIdx: index("match_player_stats_player_id_idx").on(table.playerId),
-  })
+  }
 );
 
 // ==================== Seasons 表 ====================
-export const seasons = pgTable(
+export const seasons = mysqlTable(
   "seasons",
   {
-    id: varchar("id", { length: 36 })
-      .primaryKey()
-      .default(sql`gen_random_uuid()`),
-    teamId: varchar("team_id", { length: 36 })
-      .notNull()
-      .references(() => teams.id, { onDelete: "cascade" }),
+    id: varchar("id", { length: 36 }).primaryKey(),
+    teamId: varchar("team_id", { length: 36 }).notNull(),
     name: varchar("name", { length: 128 }).notNull(),
-    startDate: timestamp("start_date", { withTimezone: true }).notNull(),
-    endDate: timestamp("end_date", { withTimezone: true }),
-    createdAt: timestamp("created_at", { withTimezone: true })
+    startDate: timestamp("start_date").notNull(),
+    endDate: timestamp("end_date"),
+    createdAt: timestamp("created_at")
       .defaultNow()
       .notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }),
-  },
-  (table) => ({
-    teamIdIdx: index("seasons_team_id_idx").on(table.teamId),
-  })
+    updatedAt: timestamp("updated_at").onUpdateNow(),
+  }
 );
 
 // ==================== Zod Schemas ====================
-
-// 使用 createSchemaFactory 配置 date coercion（处理前端 string → Date 转换）
 const { createInsertSchema: createCoercedInsertSchema } = createSchemaFactory({
   coerce: { date: true },
 });
 
-// Teams Schemas
 export const insertTeamSchema = createCoercedInsertSchema(teams).pick({
   name: true,
   logo: true,
@@ -171,7 +130,6 @@ export const updateTeamSchema = createCoercedInsertSchema(teams)
   })
   .partial();
 
-// Players Schemas
 export const insertPlayerSchema = createCoercedInsertSchema(players).pick({
   teamId: true,
   name: true,
@@ -198,7 +156,6 @@ export const updatePlayerSchema = createCoercedInsertSchema(players)
   })
   .partial();
 
-// Matches Schemas
 export const insertMatchSchema = createCoercedInsertSchema(matches).pick({
   teamId: true,
   opponent: true,
@@ -227,7 +184,6 @@ export const updateMatchSchema = createCoercedInsertSchema(matches)
   })
   .partial();
 
-// Match Player Stats Schemas
 export const insertMatchPlayerStatSchema = createCoercedInsertSchema(
   matchPlayerStats
 ).pick({
@@ -256,7 +212,6 @@ export const updateMatchPlayerStatSchema = createCoercedInsertSchema(
   })
   .partial();
 
-// Seasons Schemas
 export const insertSeasonSchema = createCoercedInsertSchema(seasons).pick({
   teamId: true,
   name: true,

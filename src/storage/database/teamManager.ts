@@ -1,5 +1,5 @@
 import { eq, and, SQL } from "drizzle-orm";
-import { getDb } from "coze-coding-dev-sdk";
+import { getDb } from "./shared/db";
 import {
   teams,
   insertTeamSchema,

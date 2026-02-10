@@ -11,7 +11,7 @@ WORKDIR /app
 # 第一阶段：安装依赖
 FROM base AS deps
 COPY package.json pnpm-lock.yaml ./
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --frozen-lockfile && pnpm add mysql2
 
 # 第二阶段：构建项目
 FROM base AS builder
@@ -34,6 +34,7 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/src/storage/database/shared/db.ts ./src/storage/database/shared/db.ts
 
 USER nextjs
 
