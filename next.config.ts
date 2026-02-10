@@ -11,6 +11,20 @@ const nextConfig: NextConfig = {
   // outputFileTracingRoot: path.resolve(__dirname, '../../'),
   /* config options here */
   allowedDevOrigins: ['*.dev.coze.site'],
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        net: false,
+        tls: false,
+        fs: false,
+        path: false,
+        stream: false,
+        crypto: false,
+      };
+    }
+    return config;
+  },
   images: {
     remotePatterns: [
       {

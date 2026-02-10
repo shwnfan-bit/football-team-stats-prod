@@ -1,3 +1,4 @@
+'use server';
 import { getDb } from "./db";
 import { sql } from "drizzle-orm";
 
