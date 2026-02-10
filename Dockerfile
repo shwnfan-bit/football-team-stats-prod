@@ -26,11 +26,9 @@ ENV NODE_ENV production
 ENV NEXT_TELEMETRY_DISABLED 1
 ENV PORT 5000
 
-# 创建非 root 用户并预设目录权限
+# 创建非 root 用户
 RUN groupadd --gid 1001 nodejs && \
-    useradd --uid 1001 nextjs && \
-    mkdir -p /home/nextjs/.cache && \
-    chown -R nextjs:nodejs /home/nextjs
+    useradd --uid 1001 nextjs
 
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next ./.next
@@ -42,5 +40,5 @@ USER nextjs
 # 暴露 5000 端口
 EXPOSE 5000
 
-# 直接使用 node 运行，避免启动时 corepack 权限问题
-CMD ["node", "node_modules/.bin/next", "start", "-p", "5000"]
+# 使用 node 直接运行 next 核心文件，这是最稳妥的方式
+CMD ["node", "node_modules/next/dist/bin/next", "start", "-p", "5000"]
