@@ -18,7 +18,9 @@ FROM base AS builder
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED 1
-RUN pnpm build
+ENV NODE_OPTIONS="--max-old-space-size=1536"
+ENV NEXT_DISABLE_SOURCEMAPS=1
+RUN NODE_ENV=production pnpm build
 
 # 第三阶段：运行环境
 FROM base AS runner

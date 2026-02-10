@@ -11,6 +11,7 @@ const nextConfig: NextConfig = {
   // outputFileTracingRoot: path.resolve(__dirname, '../../'),
   /* config options here */
   allowedDevOrigins: ['*.dev.coze.site'],
+  productionBrowserSourceMaps: false,
   webpack: (config, { isServer }) => {
     if (!isServer) {
       config.resolve.fallback = {
