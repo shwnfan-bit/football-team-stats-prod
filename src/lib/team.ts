@@ -1,4 +1,5 @@
 import { Team, storage, generateId } from './storage';
+import { initDatabase } from '../storage/database/shared/init';
 
 const CHENGDU_DADIE_TEAM_NAME = '成都老爹队';
 
@@ -30,6 +31,9 @@ export const initializeChengduDadieTeam = async (): Promise<string> => {
   // 开始初始化
   initializationPromise = (async () => {
     try {
+      // 确保数据库表已创建
+      await initDatabase();
+
       // 查询球队是否存在
       const teams = await storage.getTeams();
       const existingTeam = teams.find(t => t.name === CHENGDU_DADIE_TEAM_NAME);
