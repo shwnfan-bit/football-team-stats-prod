@@ -1,5 +1,5 @@
 # 使用 Node.js 18 官方镜像作为基础
-FROM node:18-slim AS base
+FROM node:20-slim AS base
 
 # 安装 pnpm
 ENV PNPM_HOME="/pnpm"
